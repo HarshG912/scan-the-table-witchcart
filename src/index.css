@@ -1,0 +1,272 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Brand Colors */
+    --background: 28 100% 97%;
+    --foreground: 0 0% 17%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 17%;
+
+    --primary: 24 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    --primary-hover: 24 100% 45%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 17%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 24 100% 50%;
+
+    --radius: 0.75rem;
+    
+    --veg-indicator: 142 76% 36%;
+    --non-veg-indicator: 0 84% 60%;
+    
+    --rejected: 0 84% 60%;
+
+    --sidebar-background: 28 100% 97%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Analytics Theme Variables (defaults to Classic Light) */
+    --analytics-primary: 0 0% 100%;
+    --analytics-secondary: 0 0% 96%;
+    --analytics-text: 0 0% 10%;
+  }
+
+  .dark {
+    --background: 20 14% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 20 14% 8%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 20 14% 8%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 20 14% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 20 14% 15%;
+    --muted-foreground: 25 5% 65%;
+
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 20 14% 15%;
+    --input: 20 14% 15%;
+    --ring: 24 95% 53%;
+    
+    --veg-indicator: 142 76% 36%;
+    --non-veg-indicator: 0 84% 60%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Analytics Theme Variables (defaults to Modern Dark in dark mode) */
+    --analytics-primary: 0 0% 7%;
+    --analytics-secondary: 0 0% 12%;
+    --analytics-text: 0 0% 88%;
+  }
+
+  /* Theme-specific overrides - these override both light and dark mode */
+  [data-theme="classicLight"] {
+    --analytics-primary: 0 0% 100%;
+    --analytics-secondary: 0 0% 96%;
+    --analytics-text: 0 0% 10%;
+    --background: 0 0% 100%;
+    --card: 0 0% 96%;
+    --foreground: 0 0% 10%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 96%;
+    --popover-foreground: 0 0% 10%;
+    --muted: 0 0% 96%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
+  }
+
+  [data-theme="modernDark"] {
+    --analytics-primary: 0 0% 7%;
+    --analytics-secondary: 0 0% 12%;
+    --analytics-text: 0 0% 88%;
+    --background: 0 0% 7%;
+    --card: 0 0% 12%;
+    --foreground: 0 0% 88%;
+    --card-foreground: 0 0% 88%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 88%;
+    --muted: 0 0% 12%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 88%;
+  }
+
+  [data-theme="elegantBlue"] {
+    --analytics-primary: 207 51% 11%;
+    --analytics-secondary: 213 36% 17%;
+    --analytics-text: 75 14% 88%;
+    --background: 207 51% 11%;
+    --card: 213 36% 17%;
+    --foreground: 75 14% 88%;
+    --card-foreground: 75 14% 88%;
+    --popover: 213 36% 17%;
+    --popover-foreground: 75 14% 88%;
+    --muted: 213 36% 17%;
+    --secondary: 213 36% 17%;
+    --secondary-foreground: 75 14% 88%;
+  }
+
+  [data-theme="warmSunset"] {
+    --analytics-primary: 36 100% 95%;
+    --analytics-secondary: 34 100% 85%;
+    --analytics-text: 24 38% 12%;
+    --background: 36 100% 95%;
+    --card: 34 100% 85%;
+    --foreground: 24 38% 12%;
+    --card-foreground: 24 38% 12%;
+    --popover: 34 100% 85%;
+    --popover-foreground: 24 38% 12%;
+    --muted: 34 100% 85%;
+    --secondary: 34 100% 85%;
+    --secondary-foreground: 24 38% 12%;
+  }
+
+  [data-theme="mintFresh"] {
+    --analytics-primary: 138 36% 96%;
+    --analytics-secondary: 122 30% 84%;
+    --analytics-text: 125 45% 20%;
+    --background: 138 36% 96%;
+    --card: 122 30% 84%;
+    --foreground: 125 45% 20%;
+    --card-foreground: 125 45% 20%;
+    --popover: 122 30% 84%;
+    --popover-foreground: 125 45% 20%;
+    --muted: 122 30% 84%;
+    --secondary: 122 30% 84%;
+    --secondary-foreground: 125 45% 20%;
+  }
+
+  [data-theme="royalPurple"] {
+    --analytics-primary: 284 100% 12%;
+    --analytics-secondary: 277 40% 31%;
+    --analytics-text: 263 60% 93%;
+    --background: 284 100% 12%;
+    --card: 277 40% 31%;
+    --foreground: 263 60% 93%;
+    --card-foreground: 263 60% 93%;
+    --popover: 277 40% 31%;
+    --popover-foreground: 263 60% 93%;
+    --muted: 277 40% 31%;
+    --secondary: 277 40% 31%;
+    --secondary-foreground: 263 60% 93%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
+
+@layer utilities {
+  .animate-bounce-subtle {
+    animation: bounce-subtle 0.5s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-in;
+  }
+  
+  .animate-pulse-border {
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.02);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+  }
+}
