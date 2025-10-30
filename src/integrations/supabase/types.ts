@@ -215,6 +215,9 @@ export type Database = {
         Returns: {
           bill_downloaded: boolean
           created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
           id: string
           items_json: string
           last_updated_at: string
@@ -226,6 +229,7 @@ export type Database = {
           payment_status: string
           qr_url: string
           service_charge: number
+          service_charge_amount: number
           status: string
           subtotal: number
           table_id: string
