@@ -1,94 +1,77 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { CartItem } from "@/types/menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Share2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeControls } from "@/components/ThemeControls";
-import type { Order } from "@/types/menu";
 
 export default function Billing() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const orderId = searchParams.get("order");
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<{ restaurant_name: string; restaurant_address: string } | null>(null);
-  const [qrUrl, setQrUrl] = useState("");
+  const tableId = searchParams.get("table") || "1";
+  
+  // Get cart from localStorage or navigation state
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [serviceChargeRate, setServiceChargeRate] = useState(5);
+  const [settings, setSettings] = useState<{ 
+    restaurant_name: string; 
+    restaurant_address: string;
+    merchant_upi_id: string;
+  } | null>(null);
 
   useEffect(() => {
-    if (orderId) {
-      fetchOrderAndSettings();
+    // Load cart from localStorage
+    const savedCart = localStorage.getItem(`cart_${tableId}`);
+    if (savedCart) {
+      setCart(JSON.parse(savedCart));
+    } else {
+      toast.error("No items in cart. Please add items first.");
+      navigate(`/menu?table=${tableId}`);
     }
-  }, [orderId]);
 
-  const fetchOrderAndSettings = async () => {
-    try {
-      // Fetch order details
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("order_id", orderId)
-        .single();
+    // Fetch settings
+    fetchSettings();
+  }, [tableId]);
 
-      if (orderError) throw orderError;
-      setOrder(orderData);
+  const fetchSettings = async () => {
+    const { data: settingsData } = await supabase
+      .from("settings")
+      .select("restaurant_name, restaurant_address, merchant_upi_id, service_charge")
+      .limit(1)
+      .single();
 
-      // Fetch restaurant settings
-      const { data: settingsData, error: settingsError } = await supabase
-        .from("settings")
-        .select("restaurant_name, restaurant_address, merchant_upi_id")
-        .limit(1)
-        .single();
-
-      if (settingsError) throw settingsError;
+    if (settingsData) {
       setSettings(settingsData);
-
-      // Generate QR code for UPI payment
-      if (orderData && settingsData?.merchant_upi_id) {
-        const upiString = `upi://pay?pa=${settingsData.merchant_upi_id}&pn=${encodeURIComponent(settingsData.restaurant_name)}&am=${orderData.total}&tn=Order+${orderId}&cu=INR`;
-        const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
-        setQrUrl(qrCodeUrl);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error("Failed to load bill details");
-    } finally {
-      setLoading(false);
+      setServiceChargeRate(settingsData.service_charge || 5);
     }
   };
 
-  const handleDownloadBill = () => {
-    if (!order || !settings) return;
+  const subtotal = cart.reduce((sum, item) => sum + item.Price * item.quantity, 0);
+  const serviceChargeAmount = subtotal * serviceChargeRate / 100;
+  const grandTotal = subtotal + serviceChargeAmount;
 
-    const items = JSON.parse(order.items_json);
-    const billHTML = generateBillHTML(order, items, settings, qrUrl);
-    
-    const blob = new Blob([billHTML], { type: 'text/html' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bill-${order.order_id}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    
-    toast.success("Bill downloaded successfully!");
+  const generateQRCode = () => {
+    if (!settings?.merchant_upi_id) return "";
+    const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(settings.restaurant_name)}&am=${grandTotal}&tn=Bill+Table+${tableId}&cu=INR`;
+    return `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
   };
 
-  const handlePrintBill = () => {
-    window.print();
-  };
-
-  const generateBillHTML = (order: Order, items: any[], settings: any, qrUrl: string) => {
+  const generateBillHTML = () => {
+    const qrUrl = generateQRCode();
+    
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Bill - ${order.order_id}</title>
+        <title>Bill - Table ${tableId}</title>
         <style>
           body {
             font-family: 'Courier New', monospace;
@@ -175,42 +158,36 @@ export default function Billing() {
             font-size: 12px;
           }
           @media print {
-            body {
-              padding: 10px;
-            }
+            body { padding: 10px; }
           }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>${settings.restaurant_name}</h1>
-          ${settings.restaurant_address ? `<p>${settings.restaurant_address}</p>` : ''}
+          <h1>${settings?.restaurant_name || 'Restaurant'}</h1>
+          ${settings?.restaurant_address ? `<p>${settings.restaurant_address}</p>` : ''}
           <p style="margin-top: 10px; font-weight: bold;">TAX INVOICE</p>
         </div>
         
         <div class="info">
           <div class="info-row">
-            <span><strong>Order ID:</strong></span>
-            <span>${order.order_id}</span>
-          </div>
-          <div class="info-row">
             <span><strong>Table:</strong></span>
-            <span>${order.table_id}</span>
+            <span>${tableId}</span>
           </div>
           <div class="info-row">
             <span><strong>Date & Time:</strong></span>
-            <span>${new Date(order.created_at || '').toLocaleString()}</span>
+            <span>${new Date().toLocaleString()}</span>
           </div>
-          ${order.customer_name ? `
+          ${customerName ? `
           <div class="info-row">
             <span><strong>Customer:</strong></span>
-            <span>${order.customer_name}</span>
+            <span>${customerName}</span>
           </div>
           ` : ''}
-          ${order.customer_phone ? `
+          ${customerPhone ? `
           <div class="info-row">
             <span><strong>Phone:</strong></span>
-            <span>${order.customer_phone}</span>
+            <span>${customerPhone}</span>
           </div>
           ` : ''}
         </div>
@@ -221,7 +198,7 @@ export default function Billing() {
             <span class="item-qty">QTY</span>
             <span class="item-price">PRICE</span>
           </div>
-          ${items.map(item => `
+          ${cart.map(item => `
             <div class="item-row">
               <span class="item-name">${item.Item}</span>
               <span class="item-qty">${item.quantity}</span>
@@ -233,15 +210,15 @@ export default function Billing() {
         <div class="totals">
           <div class="total-row">
             <span>Subtotal:</span>
-            <span>₹${(order.subtotal || 0).toFixed(2)}</span>
+            <span>₹${subtotal.toFixed(2)}</span>
           </div>
           <div class="total-row">
-            <span>Service Charge (${order.service_charge || 0}%):</span>
-            <span>₹${(order.service_charge_amount || 0).toFixed(2)}</span>
+            <span>Service Charge (${serviceChargeRate}%):</span>
+            <span>₹${serviceChargeAmount.toFixed(2)}</span>
           </div>
           <div class="total-row grand">
             <span>TOTAL:</span>
-            <span>₹${order.total.toFixed(2)}</span>
+            <span>₹${grandTotal.toFixed(2)}</span>
           </div>
         </div>
         
@@ -256,33 +233,49 @@ export default function Billing() {
         <div class="footer">
           <p style="font-weight: bold; margin-bottom: 10px;">Thank you for dining with us!</p>
           <p>Visit us again soon</p>
-          ${order.payment_mode ? `<p style="margin-top: 10px;">Payment Mode: ${order.payment_mode.toUpperCase()}</p>` : ''}
         </div>
       </body>
       </html>
     `;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading bill...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleDownloadBill = () => {
+    const billHTML = generateBillHTML();
+    const blob = new Blob([billHTML], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bill-table-${tableId}-${Date.now()}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    toast.success("Bill downloaded successfully!");
+  };
 
-  if (!order || !settings) {
+  const handlePrintBill = () => {
+    const billHTML = generateBillHTML();
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(billHTML);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+  };
+
+  if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Bill not found</p>
-            <Button onClick={() => navigate(-1)} className="w-full mt-4">
+            <p className="text-center text-muted-foreground mb-4">No items to bill</p>
+            <Button onClick={() => navigate(`/menu?table=${tableId}`)} className="w-full">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Go Back
+              Go to Menu
             </Button>
           </CardContent>
         </Card>
@@ -290,24 +283,22 @@ export default function Billing() {
     );
   }
 
-  const items = JSON.parse(order.items_json);
-
   return (
     <div className="min-h-screen bg-background pb-6">
-      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-lg print:hidden">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate(`/cart?table=${tableId}`)}
               className="text-primary-foreground hover:bg-primary-hover"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Bill Details</h1>
-              <p className="text-sm opacity-90">Order #{order.order_id}</p>
+              <h1 className="text-2xl font-bold">Create Bill</h1>
+              <p className="text-sm opacity-90">Table {tableId}</p>
             </div>
           </div>
           <ThemeControls variant="compact" />
@@ -315,11 +306,39 @@ export default function Billing() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 pt-6 space-y-6">
+        {/* Customer Details */}
+        <Card className="rounded-xl shadow-lg">
+          <CardHeader>
+            <CardTitle>Customer Details (Optional)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="customer_name">Customer Name</Label>
+              <Input
+                id="customer_name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Enter customer name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customer_phone">Phone Number</Label>
+              <Input
+                id="customer_phone"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="Enter phone number"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bill Preview */}
         <Card className="rounded-xl shadow-lg">
           <CardHeader className="text-center border-b">
             <div className="space-y-2">
-              <CardTitle className="text-2xl">{settings.restaurant_name}</CardTitle>
-              {settings.restaurant_address && (
+              <CardTitle className="text-2xl">{settings?.restaurant_name || 'Restaurant'}</CardTitle>
+              {settings?.restaurant_address && (
                 <p className="text-sm text-muted-foreground">{settings.restaurant_address}</p>
               )}
               <p className="text-xs font-semibold text-primary">TAX INVOICE</p>
@@ -330,21 +349,23 @@ export default function Billing() {
             {/* Order Info */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground">Order ID</p>
-                <p className="font-semibold">{order.order_id}</p>
-              </div>
-              <div>
                 <p className="text-muted-foreground">Table</p>
-                <p className="font-semibold">{order.table_id}</p>
+                <p className="font-semibold">{tableId}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Date & Time</p>
-                <p className="font-semibold">{new Date(order.created_at || '').toLocaleString()}</p>
+                <p className="font-semibold">{new Date().toLocaleString()}</p>
               </div>
-              {order.customer_name && (
+              {customerName && (
                 <div>
                   <p className="text-muted-foreground">Customer</p>
-                  <p className="font-semibold">{order.customer_name}</p>
+                  <p className="font-semibold">{customerName}</p>
+                </div>
+              )}
+              {customerPhone && (
+                <div>
+                  <p className="text-muted-foreground">Phone</p>
+                  <p className="font-semibold">{customerPhone}</p>
                 </div>
               )}
             </div>
@@ -356,7 +377,7 @@ export default function Billing() {
                 <span className="w-16 text-center">QTY</span>
                 <span className="w-20 text-right">PRICE</span>
               </div>
-              {items.map((item: any, index: number) => (
+              {cart.map((item, index) => (
                 <div key={index} className="flex justify-between text-sm">
                   <span className="flex-1">{item.Item}</span>
                   <span className="w-16 text-center">{item.quantity}</span>
@@ -369,46 +390,37 @@ export default function Billing() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
-                <span>₹{(order.subtotal || 0).toFixed(2)}</span>
+                <span>₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Service Charge ({order.service_charge || 0}%)</span>
-                <span>₹{(order.service_charge_amount || 0).toFixed(2)}</span>
+                <span>Service Charge ({serviceChargeRate}%)</span>
+                <span>₹{serviceChargeAmount.toFixed(2)}</span>
               </div>
               <div className="border-t pt-2 flex justify-between font-bold text-lg">
                 <span>TOTAL</span>
-                <span className="text-primary">₹{order.total.toFixed(2)}</span>
+                <span className="text-primary">₹{grandTotal.toFixed(2)}</span>
               </div>
             </div>
 
             {/* QR Code */}
-            {qrUrl && (
+            {settings?.merchant_upi_id && (
               <div className="border rounded-lg p-6 text-center bg-secondary/20">
                 <p className="font-semibold mb-3">Scan to Pay</p>
                 <div className="bg-white p-4 rounded-lg inline-block">
-                  <img src={qrUrl} alt="UPI Payment QR Code" className="w-48 h-48" />
+                  <img src={generateQRCode()} alt="UPI Payment QR Code" className="w-48 h-48" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">Scan with any UPI app</p>
               </div>
             )}
 
-            {/* Payment Mode */}
-            {order.payment_mode && (
-              <div className="text-center text-sm">
-                <span className="inline-block px-4 py-2 bg-secondary rounded-full">
-                  Payment Mode: <strong>{order.payment_mode.toUpperCase()}</strong>
-                </span>
-              </div>
-            )}
-
             {/* Action Buttons */}
-            <div className="flex gap-3 pt-4 print:hidden">
+            <div className="flex gap-3 pt-4">
               <Button onClick={handleDownloadBill} className="flex-1">
                 <Download className="mr-2 h-4 w-4" />
                 Download Bill
               </Button>
               <Button onClick={handlePrintBill} variant="outline" className="flex-1">
-                <Share2 className="mr-2 h-4 w-4" />
+                <Printer className="mr-2 h-4 w-4" />
                 Print Bill
               </Button>
             </div>

@@ -8,6 +8,7 @@ interface BillData {
   items: CartItem[];
   subtotal: number;
   serviceCharge: number;
+  serviceChargeAmount: number;
   total: number;
   paymentMode: string;
   timestamp: string;
@@ -26,6 +27,7 @@ export const orderToBillData = (order: Order, restaurantName: string = "Scan The
     items: JSON.parse(order.items_json) as CartItem[],
     subtotal: order.subtotal || 0,
     serviceCharge: order.service_charge || 0,
+    serviceChargeAmount: order.service_charge_amount || 0,
     total: order.total,
     paymentMode: order.payment_mode?.toUpperCase() || 'UPI',
     timestamp: order.created_at || new Date().toISOString(),
@@ -184,10 +186,10 @@ export const generateBillPDF = async (billData: BillData, qrUrl?: string): Promi
           <span>Subtotal:</span>
           <span>₹${billData.subtotal.toFixed(2)}</span>
         </div>
-        <div class="total-row">
-          <span>Service Charge:</span>
-          <span>₹${billData.serviceCharge.toFixed(2)}</span>
-        </div>
+          <div class="total-row">
+            <span>Service Charge (${billData.serviceCharge}%):</span>
+            <span>₹${billData.serviceChargeAmount.toFixed(2)}</span>
+          </div>
         <div class="total-row grand">
           <span>TOTAL:</span>
           <span>₹${billData.total.toFixed(2)}</span>
