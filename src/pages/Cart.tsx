@@ -466,13 +466,6 @@ export default function Cart() {
                   <Button onClick={handleConfirmOrder} disabled={isPlacingOrder} className="w-full h-12 text-base">
                     {isPlacingOrder ? "Placing Order..." : `Confirm Order (${paymentMode.toUpperCase()})`}
                   </Button>
-                  <Button 
-                    onClick={() => navigate(`/billing?table=${tableId}`)} 
-                    variant="secondary" 
-                    className="w-full h-12 text-base"
-                  >
-                    Create Bill (Waiter)
-                  </Button>
                   <div className="flex gap-3">
                     <Button onClick={() => navigate(`/menu?table=${tableId}`)} variant="outline" className="flex-1">
                       <ArrowLeft className="w-4 h-4 mr-2" />
