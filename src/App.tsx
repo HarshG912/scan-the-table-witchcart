@@ -8,6 +8,7 @@ import { useAnalyticsTheme } from "@/hooks/use-analytics-theme";
 import { useEffect } from "react";
 import Menu from "./pages/Menu";
 import Cart from "./pages/Cart";
+import Billing from "./pages/Billing";
 import Chef from "./pages/Chef";
 import Auth from "./pages/Auth";
 import Analytics from "./pages/Analytics";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/" element={<Menu />} />
             <Route path="/menu" element={<Menu />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/billing" element={<Billing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/chef" element={<Chef />} />
             <Route path="/analytics" element={<Analytics />} />

@@ -182,35 +182,29 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
   };
 
   const handleDownloadBill = async (order: Order) => {
-    if (!order || order.bill_downloaded) return;
+    if (!order) return;
     
     try {
       // Fetch restaurant settings
       const { data: settings } = await supabase
         .from('settings')
-        .select('restaurant_name, restaurant_address')
+        .select('restaurant_name, restaurant_address, merchant_upi_id')
         .limit(1)
         .single();
       
       const restaurantName = settings?.restaurant_name || 'Scan The Table';
       const restaurantAddress = settings?.restaurant_address || '';
       
+      // Generate QR code URL if merchant UPI ID exists
+      let qrUrl = '';
+      if (settings?.merchant_upi_id) {
+        const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(restaurantName)}&am=${order.total}&tn=Order+${order.order_id}&cu=INR`;
+        qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
+      }
+      
       // Generate and download bill
       const billData = orderToBillData(order as any, restaurantName, restaurantAddress);
-      await downloadBill(billData);
-      
-      // Update database
-      await supabase
-        .from("orders")
-        .update({ bill_downloaded: true })
-        .eq("id", order.id);
-      
-      // Update local state
-      setOrders(prevOrders => 
-        prevOrders.map(o => 
-          o.id === order.id ? { ...o, bill_downloaded: true } : o
-        )
-      );
+      await downloadBill(billData, qrUrl);
       
       toast.success("Bill downloaded successfully!");
     } catch (error) {
@@ -324,23 +318,25 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
 
         if (order.status === "rejected") {
           return (
-            <Card key={order.id} className="rounded-xl shadow-lg border-destructive">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <XCircle className="w-6 h-6 text-destructive" />
-                    Order #{order.order_id}
+            <Card key={order.id} className="rounded-xl shadow-lg border-destructive bg-card">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                    <span>Order #{order.order_id}</span>
                   </CardTitle>
-                  <Badge variant="destructive">Rejected ❌</Badge>
+                  <Badge variant="destructive" className="w-fit">Rejected ❌</Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">
-                  Sorry, this order was rejected. Please contact the staff or place a new order.
-                </p>
+              <CardContent className="space-y-4 pt-3">
+                <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                  <p className="text-sm text-muted-foreground">
+                    Sorry, this order was rejected. Please contact the staff or place a new order.
+                  </p>
+                </div>
                 
-                <div className="space-y-2 pt-4 border-t">
-                  <h3 className="font-semibold">Items</h3>
+                <div className="space-y-2 pt-2 border-t">
+                  <h3 className="font-semibold text-sm">Items</h3>
                   <div className="space-y-2">
                     {items.map((item: any, index: number) => (
                       <div key={index} className="flex justify-between text-sm">
@@ -426,15 +422,14 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
 
               {/* Download Bill Button - Only show after order is accepted */}
               {(order.status === "accepted" || order.status === "cooking" || order.status === "completed") && (
-                <Button 
-                  onClick={() => handleDownloadBill(order)} 
-                  disabled={order.bill_downloaded} 
-                  className={order.bill_downloaded ? "opacity-40 w-full" : "w-full"}
-                  variant="outline"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {order.bill_downloaded ? "Bill Downloaded" : "Download Bill"}
-                </Button>
+        <Button 
+          onClick={() => handleDownloadBill(order)} 
+          className="w-full"
+          variant="outline"
+        >
+              <Download className="mr-2 h-4 w-4" />
+              Download Bill
+            </Button>
               )}
             </CardContent>
           </Card>

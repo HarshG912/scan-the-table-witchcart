@@ -15,9 +15,6 @@ interface AuthDialogProps {
 
 export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [isSignUp, setIsSignUp] = useState(true);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -43,81 +40,29 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProp
     }
   };
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email.trim()) {
-      toast.error("Please enter your email");
-      return;
-    }
-
-    if (isSignUp && !fullName.trim()) {
-      toast.error("Please enter your full name");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password: Math.random().toString(36).slice(-8), // Generate random password for passwordless
-          options: {
-            data: {
-              full_name: fullName,
-            },
-            emailRedirectTo: `${window.location.origin}/cart${window.location.search}`,
-          }
-        });
-
-        if (error) throw error;
-
-        toast.success("Check your email for the login link!");
-        onOpenChange(false);
-      } else {
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/cart${window.location.search}`,
-          }
-        });
-
-        if (error) throw error;
-
-        toast.success("Check your email for the login link!");
-        onOpenChange(false);
-      }
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      toast.error(error.message || "Authentication failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Sign in to continue</DialogTitle>
+          <DialogTitle>Login to continue</DialogTitle>
           <DialogDescription>
-            Please sign in to place your order
+            Please login to place your order
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <Button
             type="button"
-            variant="outline"
-            className="w-full"
+            variant="default"
+            className="w-full h-12"
             onClick={handleGoogleSignIn}
             disabled={loading}
           >
             {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+              <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -136,70 +81,8 @@ export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProp
                 />
               </svg>
             )}
-            Continue with Google
+            Login with Google
           </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with email
-              </span>
-            </div>
-          </div>
-
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  disabled={loading}
-                  required={isSignUp}
-                />
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                isSignUp ? "Sign Up" : "Send Login Link"
-              )}
-            </Button>
-          </form>
-
-          <div className="text-center text-sm">
-            <button
-              type="button"
-              className="text-primary hover:underline"
-              onClick={() => setIsSignUp(!isSignUp)}
-              disabled={loading}
-            >
-              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
-            </button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

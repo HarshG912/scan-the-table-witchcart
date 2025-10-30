@@ -201,7 +201,7 @@ export default function Cart() {
         setShowPayment(true);
         toast.success("Order placed! Please complete payment.");
       } else {
-        // For cash/card, clear cart and navigate to menu with track tab active
+        // For cash/card, clear cart and navigate to track order tab
         localStorage.removeItem(`cart_${tableId}`);
         toast.success(`Order placed successfully! Payment mode: ${paymentMode.toUpperCase()}`);
         navigate(`/menu?table=${tableId}`, {
@@ -233,9 +233,13 @@ export default function Cart() {
       // Open UPI payment URL
       window.location.href = upiUrl;
 
-      // Navigate back to menu after a delay
+      // Navigate to track order tab after a delay
       setTimeout(() => {
-        navigate(`/menu?table=${tableId}`);
+        navigate(`/menu?table=${tableId}`, {
+          state: {
+            activeTab: 'track'
+          }
+        });
       }, 2000);
     } catch (error) {
       console.error("Error claiming payment:", error);

@@ -14,16 +14,234 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      orders: {
+        Row: {
+          accepted_at: string | null
+          bill_downloaded: boolean | null
+          bill_url: string | null
+          completed_at: string | null
+          cook_name: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          items_json: string
+          last_updated_at: string | null
+          last_updated_by: string | null
+          notes: string | null
+          order_id: string
+          paid_at: string | null
+          payment_claimed: boolean | null
+          payment_mode: string | null
+          payment_status: string
+          qr_url: string | null
+          service_charge: number | null
+          service_charge_amount: number | null
+          status: string
+          subtotal: number | null
+          table_id: string
+          total: number
+          user_id: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          bill_downloaded?: boolean | null
+          bill_url?: string | null
+          completed_at?: string | null
+          cook_name?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_json: string
+          last_updated_at?: string | null
+          last_updated_by?: string | null
+          notes?: string | null
+          order_id: string
+          paid_at?: string | null
+          payment_claimed?: boolean | null
+          payment_mode?: string | null
+          payment_status?: string
+          qr_url?: string | null
+          service_charge?: number | null
+          service_charge_amount?: number | null
+          status?: string
+          subtotal?: number | null
+          table_id: string
+          total: number
+          user_id?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          bill_downloaded?: boolean | null
+          bill_url?: string | null
+          completed_at?: string | null
+          cook_name?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          items_json?: string
+          last_updated_at?: string | null
+          last_updated_by?: string | null
+          notes?: string | null
+          order_id?: string
+          paid_at?: string | null
+          payment_claimed?: boolean | null
+          payment_mode?: string | null
+          payment_status?: string
+          qr_url?: string | null
+          service_charge?: number | null
+          service_charge_amount?: number | null
+          status?: string
+          subtotal?: number | null
+          table_id?: string
+          total?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          login_type: string
+          menu_sheet_url: string | null
+          merchant_upi_id: string
+          payment_modes: Json
+          restaurant_address: string | null
+          restaurant_name: string
+          service_charge: number
+          table_count: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          login_type?: string
+          menu_sheet_url?: string | null
+          merchant_upi_id?: string
+          payment_modes?: Json
+          restaurant_address?: string | null
+          restaurant_name?: string
+          service_charge?: number
+          table_count?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          login_type?: string
+          menu_sheet_url?: string | null
+          merchant_upi_id?: string
+          payment_modes?: Json
+          restaurant_address?: string | null
+          restaurant_name?: string
+          service_charge?: number
+          table_count?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      public_settings: {
+        Row: {
+          menu_sheet_url: string | null
+          payment_modes: Json | null
+          restaurant_address: string | null
+          restaurant_name: string | null
+          service_charge: number | null
+          table_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      generate_order_id: { Args: never; Returns: string }
+      get_orders_by_table: {
+        Args: { p_table_id: string }
+        Returns: {
+          bill_downloaded: boolean
+          created_at: string
+          id: string
+          items_json: string
+          last_updated_at: string
+          last_updated_by: string
+          notes: string
+          order_id: string
+          paid_at: string
+          payment_claimed: boolean
+          payment_status: string
+          qr_url: string
+          service_charge: number
+          status: string
+          subtotal: number
+          table_id: string
+          total: number
+        }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "cook" | "chef" | "waiter" | "manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +368,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "cook", "chef", "waiter", "manager"],
+    },
   },
 } as const

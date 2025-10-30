@@ -20,6 +20,7 @@ interface Settings {
   table_count: number;
   payment_modes: { cash: boolean; upi: boolean; card: boolean };
   menu_sheet_url: string | null;
+  login_type: 'none' | 'google' | 'otp';
 }
 
 export default function Admin() {
@@ -73,7 +74,8 @@ export default function Admin() {
       if (error) throw error;
       setSettings({
         ...data,
-        payment_modes: data.payment_modes as { cash: boolean; upi: boolean; card: boolean }
+        payment_modes: data.payment_modes as { cash: boolean; upi: boolean; card: boolean },
+        login_type: (data.login_type as 'none' | 'google' | 'otp') || 'google'
       });
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -102,6 +104,7 @@ export default function Admin() {
           table_count: settings.table_count,
           payment_modes: settings.payment_modes,
           menu_sheet_url: settings.menu_sheet_url,
+          login_type: settings.login_type,
         })
         .eq("id", settings.id);
 
@@ -289,6 +292,25 @@ export default function Admin() {
                   <Label htmlFor="card" className="font-normal cursor-pointer">Card</Label>
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="login_type">Customer Login Type</Label>
+              <select
+                id="login_type"
+                value={settings?.login_type || 'google'}
+                onChange={(e) => setSettings(prev => prev ? { ...prev, login_type: e.target.value as 'none' | 'google' | 'otp' } : null)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="none">No Login (Guest Checkout)</option>
+                <option value="google">Google Login Only</option>
+                <option value="otp">OTP-based Login (Coming Soon)</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {settings?.login_type === 'none' && 'Customers can order without logging in'}
+                {settings?.login_type === 'google' && 'Customers must sign in with Google'}
+                {settings?.login_type === 'otp' && 'Customers will login using OTP (SMS) - Feature coming soon'}
+              </p>
             </div>
 
             <Button
