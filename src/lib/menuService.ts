@@ -2,20 +2,20 @@ import { MenuItem } from "@/types/menu";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Fetch menu items dynamically using the Google Sheet URL stored in the settings table.
- * Supports live menu updates without app rebuild.
+ * Fetch menu items from tenant's Google Sheet URL
+ * @param tenantId - The UUID of the tenant
  */
-export async function fetchMenuItems(): Promise<MenuItem[]> {
+export async function fetchMenuItems(tenantId: string): Promise<MenuItem[]> {
   try {
-    // Step 1: Get the Google Sheet URL from Supabase
+    // Step 1: Get the tenant's Google Sheet URL from tenant_settings
     const { data: settings, error: settingsError } = await supabase
-      .from("public_settings")
+      .from("public_tenant_settings")
       .select("menu_sheet_url")
-      .limit(1)
+      .eq("tenant_id", tenantId)
       .single();
 
     if (settingsError || !settings?.menu_sheet_url) {
-      console.error("Error fetching settings or missing menu_sheet_url:", settingsError);
+      console.error("Error fetching tenant settings or missing menu_sheet_url:", settingsError);
       throw new Error("Menu unavailable. Please contact restaurant staff.");
     }
 

@@ -5,10 +5,11 @@ import { useNavigate } from "react-router-dom";
 interface CartBottomBarProps {
   itemCount: number;
   total: number;
-  tableId: string;
+  tenantId: string;
+  tableNumber: string;
 }
 
-export function CartBottomBar({ itemCount, total, tableId }: CartBottomBarProps) {
+export function CartBottomBar({ itemCount, total, tenantId, tableNumber }: CartBottomBarProps) {
   const navigate = useNavigate();
 
   if (itemCount === 0) return null;
@@ -25,7 +26,7 @@ export function CartBottomBar({ itemCount, total, tableId }: CartBottomBarProps)
         </div>
         <Button 
           size="lg"
-          onClick={() => navigate(`/cart?table=${tableId}`)}
+          onClick={() => navigate(`/${tenantId}/cart/${tableNumber}`)}
           className="font-semibold"
         >
           Go to Cart

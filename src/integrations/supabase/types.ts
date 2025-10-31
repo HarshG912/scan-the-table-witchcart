@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      global_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          login_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          login_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          login_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           accepted_at: string | null
@@ -41,6 +62,7 @@ export type Database = {
           status: string
           subtotal: number | null
           table_id: string
+          tenant_id: string | null
           total: number
           user_id: string | null
         }
@@ -70,6 +92,7 @@ export type Database = {
           status?: string
           subtotal?: number | null
           table_id: string
+          tenant_id?: string | null
           total: number
           user_id?: string | null
         }
@@ -99,10 +122,19 @@ export type Database = {
           status?: string
           subtotal?: number | null
           table_id?: string
+          tenant_id?: string | null
           total?: number
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -111,6 +143,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -119,6 +152,7 @@ export type Database = {
           full_name: string
           id: string
           phone?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -127,9 +161,53 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_tables: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          qr_code_url: string
+          table_number: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          qr_code_url: string
+          table_number: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          qr_code_url?: string
+          table_number?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_tables_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {
@@ -173,26 +251,123 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          menu_sheet_url: string | null
+          merchant_upi_id: string
+          payment_modes: Json
+          restaurant_address: string | null
+          restaurant_name: string
+          service_charge: number
+          table_count: number
+          tenant_id: string
+          theme_config: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          menu_sheet_url?: string | null
+          merchant_upi_id?: string
+          payment_modes?: Json
+          restaurant_address?: string | null
+          restaurant_name: string
+          service_charge?: number
+          table_count?: number
+          tenant_id: string
+          theme_config?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          menu_sheet_url?: string | null
+          merchant_upi_id?: string
+          payment_modes?: Json
+          restaurant_address?: string | null
+          restaurant_name?: string
+          service_charge?: number
+          table_count?: number
+          tenant_id?: string
+          theme_config?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          contact_email: string
+          contact_phone: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          restaurant_name: string
+          tenant_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          contact_email: string
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          restaurant_name: string
+          tenant_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          contact_email?: string
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          restaurant_name?: string
+          tenant_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
           user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -207,31 +382,116 @@ export type Database = {
         }
         Relationships: []
       }
+      public_tenant_settings: {
+        Row: {
+          menu_sheet_url: string | null
+          payment_modes: Json | null
+          restaurant_address: string | null
+          restaurant_name: string | null
+          service_charge: number | null
+          tenant_id: string | null
+          theme_config: Json | null
+        }
+        Insert: {
+          menu_sheet_url?: string | null
+          payment_modes?: Json | null
+          restaurant_address?: string | null
+          restaurant_name?: string | null
+          service_charge?: number | null
+          tenant_id?: string | null
+          theme_config?: Json | null
+        }
+        Update: {
+          menu_sheet_url?: string | null
+          payment_modes?: Json | null
+          restaurant_address?: string | null
+          restaurant_name?: string | null
+          service_charge?: number | null
+          tenant_id?: string | null
+          theme_config?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      generate_order_id: { Args: never; Returns: string }
-      get_orders_by_table: {
-        Args: { p_table_id: string }
-        Returns: {
-          bill_downloaded: boolean
-          created_at: string
-          id: string
-          items_json: string
-          last_updated_at: string
-          last_updated_by: string
-          notes: string
-          order_id: string
-          paid_at: string
-          payment_claimed: boolean
-          payment_status: string
-          qr_url: string
-          service_charge: number
-          status: string
-          subtotal: number
-          table_id: string
-          total: number
-        }[]
+      create_new_tenant: {
+        Args: {
+          p_contact_email: string
+          p_contact_phone: string
+          p_menu_sheet_url: string
+          p_merchant_upi_id: string
+          p_restaurant_name: string
+          p_service_charge: number
+          p_table_count: number
+          p_tenant_name: string
+        }
+        Returns: string
       }
+      generate_order_id:
+        | { Args: { p_tenant_id: string }; Returns: string }
+        | { Args: never; Returns: string }
+      get_orders_by_table:
+        | {
+            Args: { p_table_id: string }
+            Returns: {
+              bill_downloaded: boolean
+              created_at: string
+              customer_email: string
+              customer_name: string
+              customer_phone: string
+              id: string
+              items_json: string
+              last_updated_at: string
+              last_updated_by: string
+              notes: string
+              order_id: string
+              paid_at: string
+              payment_claimed: boolean
+              payment_status: string
+              qr_url: string
+              service_charge: number
+              service_charge_amount: number
+              status: string
+              subtotal: number
+              table_id: string
+              total: number
+            }[]
+          }
+        | {
+            Args: { p_table_id: string; p_tenant_id: string }
+            Returns: {
+              bill_downloaded: boolean
+              created_at: string
+              customer_email: string
+              customer_name: string
+              customer_phone: string
+              id: string
+              items_json: string
+              last_updated_at: string
+              last_updated_by: string
+              notes: string
+              order_id: string
+              paid_at: string
+              payment_claimed: boolean
+              payment_status: string
+              qr_url: string
+              service_charge: number
+              service_charge_amount: number
+              status: string
+              subtotal: number
+              table_id: string
+              total: number
+            }[]
+          }
+      get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -241,7 +501,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "cook" | "chef" | "waiter" | "manager"
+      app_role:
+        | "admin"
+        | "cook"
+        | "chef"
+        | "waiter"
+        | "manager"
+        | "tenant_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -369,7 +635,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "cook", "chef", "waiter", "manager"],
+      app_role: ["admin", "cook", "chef", "waiter", "manager", "tenant_admin"],
     },
   },
 } as const

@@ -26,44 +26,43 @@ interface Order {
 }
 
 interface TrackOrderProps {
-  initialTableId?: string;
+  tableId: string;
+  tenantId: string;
   refreshTrigger?: number;
 }
 
-export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) {
-  const [tableId, setTableId] = useState(initialTableId || "");
+export function TrackOrder({ tableId, tenantId, refreshTrigger }: TrackOrderProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searching, setSearching] = useState(false);
   const previousStatusRef = useRef<Map<string, string>>(new Map());
   const confettiTriggeredRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (initialTableId) {
-      fetchOrder(initialTableId);
+    if (tableId && tenantId) {
+      fetchOrder();
     }
-  }, [initialTableId]);
+  }, [tableId, tenantId]);
 
   // Handle manual refresh trigger
   useEffect(() => {
-    if (refreshTrigger && refreshTrigger > 0 && tableId) {
-      fetchOrder(tableId);
+    if (refreshTrigger && refreshTrigger > 0 && tableId && tenantId) {
+      fetchOrder();
     }
   }, [refreshTrigger]);
 
   // Real-time subscription for order status changes
   useEffect(() => {
-    if (!tableId) return;
+    if (!tableId || !tenantId) return;
 
     const channel = supabase
-      .channel(`order-tracking-${tableId}`)
+      .channel(`order-tracking-${tenantId}-${tableId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'orders',
-          filter: `table_id=eq.${tableId}`
+          filter: `table_id=eq.${tableId},tenant_id=eq.${tenantId}`
         },
         (payload) => {
           const updatedOrder = payload.new as Order;
@@ -149,17 +148,20 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tableId]);
+  }, [tableId, tenantId]);
 
-  const fetchOrder = async (table: string) => {
-    if (!table) return;
+  const fetchOrder = async () => {
+    if (!tableId || !tenantId) return;
     
-    if (orders.length === 0) setLoading(true);
+    setLoading(true);
 
     try {
-      // Use secure function to fetch orders - includes 10-minute auto-clear logic
+      // Use tenant-aware function to fetch orders
       const { data, error } = await supabase
-        .rpc('get_orders_by_table', { p_table_id: table });
+        .rpc('get_orders_by_table', { 
+          p_table_id: tableId,
+          p_tenant_id: tenantId 
+        });
 
       if (error) throw error;
 
@@ -177,7 +179,6 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
       console.error("Error fetching order:", error);
     } finally {
       setLoading(false);
-      setSearching(false);
     }
   };
 
@@ -185,38 +186,25 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
     if (!order) return;
     
     try {
-      // Fetch restaurant settings
+      // Fetch restaurant settings for this tenant
       const { data: settings } = await supabase
-        .from('settings')
-        .select('restaurant_name, restaurant_address, merchant_upi_id')
-        .limit(1)
+        .from('public_tenant_settings')
+        .select('restaurant_name, restaurant_address')
+        .eq('tenant_id', tenantId)
         .single();
       
-      const restaurantName = settings?.restaurant_name || 'Scan The Table';
+      const restaurantName = settings?.restaurant_name || 'Restaurant';
       const restaurantAddress = settings?.restaurant_address || '';
       
-      // Generate QR code URL if merchant UPI ID exists
-      let qrUrl = '';
-      if (settings?.merchant_upi_id) {
-        const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(restaurantName)}&am=${order.total}&tn=Order+${order.order_id}&cu=INR`;
-        qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
-      }
-      
-      // Generate and download bill
+      // Note: QR generation is handled by billing page
       const billData = orderToBillData(order as any, restaurantName, restaurantAddress);
-      await downloadBill(billData, qrUrl);
+      await downloadBill(billData, '');
       
       toast.success("Bill downloaded successfully!");
     } catch (error) {
       console.error("Error downloading bill:", error);
       toast.error("Failed to download bill");
     }
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearching(true);
-    fetchOrder(tableId);
   };
 
   const getStatusIcon = (status: string) => {
@@ -254,43 +242,6 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
   };
 
   const statuses = ["pending", "accepted", "cooking", "completed"];
-
-  if (!initialTableId) {
-    return (
-      <div className="max-w-2xl mx-auto p-6 animate-fade-in">
-        <Card className="rounded-xl shadow-lg">
-          <CardHeader>
-            <CardTitle>Track Your Order</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSearch} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="tableId">Enter Table Number</Label>
-                <Input
-                  id="tableId"
-                  type="text"
-                  placeholder="Table number"
-                  value={tableId}
-                  onChange={(e) => setTableId(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={searching || !tableId}>
-                {searching ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  "Track Order"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   if (loading) {
     return (

@@ -5,20 +5,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useAnalyticsTheme } from "@/hooks/use-analytics-theme";
-import { useEffect } from "react";
 import Menu from "./pages/Menu";
-import Cart from "./pages/Cart";
-import Billing from "./pages/Billing";
-import Chef from "./pages/Chef";
-import Auth from "./pages/Auth";
-import Analytics from "./pages/Analytics";
-import Admin from "./pages/Admin";
+import TenantMenu from "./pages/TenantMenu";
 import NotFound from "./pages/NotFound";
+import { TenantLayout } from "./components/layouts/TenantLayout";
 
 const queryClient = new QueryClient();
 
 const ThemeInitializer = () => {
-  useAnalyticsTheme(); // Just initialize the hook, it handles everything
+  useAnalyticsTheme();
   return null;
 };
 
@@ -31,15 +26,15 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Legacy route - redirect to demo */}
             <Route path="/" element={<Menu />} />
             <Route path="/menu" element={<Menu />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/chef" element={<Chef />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/admin" element={<Admin />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            
+            {/* Tenant-specific routes */}
+            <Route path="/:tenantId" element={<TenantLayout />}>
+              <Route path="table/:tableNumber" element={<TenantMenu />} />
+            </Route>
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
