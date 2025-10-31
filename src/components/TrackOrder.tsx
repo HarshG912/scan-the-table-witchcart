@@ -15,9 +15,6 @@ interface Order {
   order_id: string;
   table_id: string;
   items_json: string;
-  subtotal: number;
-  service_charge: number;
-  service_charge_amount: number;
   total: number;
   status: string;
   payment_status: string;
@@ -26,9 +23,6 @@ interface Order {
   bill_downloaded?: boolean;
   created_at: string;
   last_updated_at: string;
-  customer_name?: string;
-  customer_email?: string;
-  customer_phone?: string;
 }
 
 interface TrackOrderProps {
@@ -169,7 +163,7 @@ export function TrackOrder({ initialTableId, refreshTrigger }: TrackOrderProps) 
 
       if (error) throw error;
 
-      const fetchedOrders = (data || []) as Order[];
+      const fetchedOrders = data || [];
       
       // Initialize previous status refs on first load
       fetchedOrders.forEach((order: Order) => {
