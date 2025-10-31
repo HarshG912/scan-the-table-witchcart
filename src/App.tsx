@@ -5,8 +5,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useAnalyticsTheme } from "@/hooks/use-analytics-theme";
-import Menu from "./pages/Menu";
 import TenantMenu from "./pages/TenantMenu";
+import TenantCart from "./pages/TenantCart";
+import TenantBilling from "./pages/TenantBilling";
+import UniversalAdmin from "./pages/UniversalAdmin";
+import TenantRegistration from "./pages/TenantRegistration";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { TenantLayout } from "./components/layouts/TenantLayout";
 
@@ -26,13 +30,21 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Legacy route - redirect to demo */}
-            <Route path="/" element={<Menu />} />
-            <Route path="/menu" element={<Menu />} />
+            {/* Root redirect to admin or auth */}
+            <Route path="/" element={<NotFound />} />
+            
+            {/* Universal Admin Routes */}
+            <Route path="/admin" element={<UniversalAdmin />} />
+            <Route path="/admin/register-tenant" element={<TenantRegistration />} />
+            
+            {/* Auth Route */}
+            <Route path="/auth" element={<Auth />} />
             
             {/* Tenant-specific routes */}
             <Route path="/:tenantId" element={<TenantLayout />}>
               <Route path="table/:tableNumber" element={<TenantMenu />} />
+              <Route path="cart/:tableNumber" element={<TenantCart />} />
+              <Route path="billing" element={<TenantBilling />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
