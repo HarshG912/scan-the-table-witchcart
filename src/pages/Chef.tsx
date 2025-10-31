@@ -369,25 +369,11 @@ export default function Cook() {
                   <Card key={order.order_id} className="rounded-xl shadow-lg hover:shadow-xl transition-shadow">
                     <CardHeader>
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                        <div>
                           <CardTitle className="text-lg">Order {order.order_id}</CardTitle>
                           <p className="text-sm text-muted-foreground mt-1">
                             Table {order.table_id} • {new Date(order.created_at!).toLocaleTimeString()}
                           </p>
-                          {(order.customer_name || order.customer_email || order.customer_phone) && (
-                            <div className="mt-2 pt-2 border-t border-border/50">
-                              <p className="text-xs font-semibold text-muted-foreground mb-1">Customer Details:</p>
-                              {order.customer_name && order.customer_name !== 'Guest' && (
-                                <p className="text-sm">👤 {order.customer_name}</p>
-                              )}
-                              {order.customer_email && (
-                                <p className="text-sm">📧 {order.customer_email}</p>
-                              )}
-                              {order.customer_phone && (
-                                <p className="text-sm">📱 {order.customer_phone}</p>
-                              )}
-                            </div>
-                          )}
                         </div>
                         <div className="flex flex-col gap-2 items-end">
                           <Badge variant={getStatusBadgeVariant(order.status)}>

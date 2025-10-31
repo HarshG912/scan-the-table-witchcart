@@ -32,7 +32,6 @@ export default function Cart() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<{ full_name: string; email: string; phone?: string } | null>(null);
-  const [loginType, setLoginType] = useState<'none' | 'google' | 'otp'>('google');
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart_${tableId}`);
     if (savedCart) {
@@ -58,17 +57,16 @@ export default function Cart() {
       }
     });
 
-    // Fetch service charge, payment modes, and login type from settings
+    // Fetch service charge and payment modes from public settings view
     const fetchSettings = async () => {
       const { data: settingsData } = await supabase
-        .from("settings")
-        .select("service_charge, payment_modes, login_type")
+        .from("public_settings")
+        .select("service_charge, payment_modes")
         .limit(1)
         .single();
 
       if (settingsData) {
         setServiceChargeRate(settingsData.service_charge || 5);
-        setLoginType((settingsData.login_type as 'none' | 'google' | 'otp') || 'google');
         if (settingsData.payment_modes) {
           const modes = settingsData.payment_modes as { upi?: boolean; cash?: boolean; card?: boolean };
           setAvailablePaymentModes({
@@ -126,28 +124,18 @@ export default function Cart() {
     toast.success("Item removed from cart");
   };
   const handleConfirmOrder = async () => {
-    // Check login type - if 'none', allow guest checkout
-    if (loginType === 'none') {
-      // Guest checkout - no authentication required
-      // Continue with order placement
-    } else if (loginType === 'google') {
-      // Require Google authentication
-      if (!user || !session) {
-        console.log('Auth check failed - showing dialog', { user: !!user, session: !!session });
-        setShowAuthDialog(true);
-        return;
-      }
+    // More robust authentication check
+    if (!user || !session) {
+      console.log('Auth check failed - showing dialog', { user: !!user, session: !!session });
+      setShowAuthDialog(true);
+      return;
+    }
 
-      // Verify session is still valid
-      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-      if (error || !currentSession) {
-        console.log('Session validation failed - showing dialog', { error });
-        setShowAuthDialog(true);
-        return;
-      }
-    } else if (loginType === 'otp') {
-      // OTP login (to be implemented)
-      toast.error("OTP login is coming soon. Please use guest checkout or contact admin.");
+    // Verify session is still valid
+    const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+    if (error || !currentSession) {
+      console.log('Session validation failed - showing dialog', { error });
+      setShowAuthDialog(true);
       return;
     }
 
@@ -201,9 +189,9 @@ export default function Cart() {
         payment_mode: paymentMode,
         qr_url: qrUrl || null,
         notes: "",
-        user_id: user?.id || null,
-        customer_name: userProfile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "Guest",
-        customer_email: userProfile?.email || user?.email || "",
+        user_id: user!.id,
+        customer_name: userProfile?.full_name || "Guest",
+        customer_email: userProfile?.email || user!.email || "",
         customer_phone: userProfile?.phone || null,
       });
       if (error) throw error;

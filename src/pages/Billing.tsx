@@ -1,114 +1,94 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { fetchMenuItems, groupByCategory } from "@/lib/menuService";
 import { supabase } from "@/integrations/supabase/client";
-import { MenuItem, CartItem } from "@/types/menu";
-import { MenuItemCard } from "@/components/MenuItemCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Download, Printer, Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Download, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeControls } from "@/components/ThemeControls";
-
-type BillingStep = 1 | 2 | 3 | 4;
+import type { Order } from "@/types/menu";
 
 export default function Billing() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const tableId = searchParams.get("table") || "1";
-  
-  const [currentStep, setCurrentStep] = useState<BillingStep>(1);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [serviceChargeRate, setServiceChargeRate] = useState(5);
-  const [settings, setSettings] = useState<{ 
-    restaurant_name: string; 
-    restaurant_address: string;
-    merchant_upi_id: string;
-  } | null>(null);
-
-  const { data: menuItems, isLoading } = useQuery({
-    queryKey: ["menu"],
-    queryFn: fetchMenuItems,
-    staleTime: 5 * 60 * 1000,
-  });
+  const orderId = searchParams.get("order");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<{ restaurant_name: string; restaurant_address: string } | null>(null);
+  const [qrUrl, setQrUrl] = useState("");
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (orderId) {
+      fetchOrderAndSettings();
+    }
+  }, [orderId]);
 
-  const fetchSettings = async () => {
-    const { data: settingsData } = await supabase
-      .from("settings")
-      .select("restaurant_name, restaurant_address, merchant_upi_id, service_charge")
-      .limit(1)
-      .single();
+  const fetchOrderAndSettings = async () => {
+    try {
+      // Fetch order details
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("order_id", orderId)
+        .single();
 
-    if (settingsData) {
+      if (orderError) throw orderError;
+      setOrder(orderData);
+
+      // Fetch restaurant settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("settings")
+        .select("restaurant_name, restaurant_address, merchant_upi_id")
+        .limit(1)
+        .single();
+
+      if (settingsError) throw settingsError;
       setSettings(settingsData);
-      setServiceChargeRate(settingsData.service_charge || 5);
+
+      // Generate QR code for UPI payment
+      if (orderData && settingsData?.merchant_upi_id) {
+        const upiString = `upi://pay?pa=${settingsData.merchant_upi_id}&pn=${encodeURIComponent(settingsData.restaurant_name)}&am=${orderData.total}&tn=Order+${orderId}&cu=INR`;
+        const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
+        setQrUrl(qrCodeUrl);
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast.error("Failed to load bill details");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const categories = menuItems ? groupByCategory(menuItems) : {};
-  const categoryNames = Object.keys(categories);
+  const handleDownloadBill = () => {
+    if (!order || !settings) return;
 
-  const handleAddToCart = (item: MenuItem) => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find((i) => i["Item Id"] === item["Item Id"]);
-      if (existingItem) {
-        return prevCart.map((i) =>
-          i["Item Id"] === item["Item Id"]
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
-      }
-      return [...prevCart, { ...item, quantity: 1 }];
-    });
+    const items = JSON.parse(order.items_json);
+    const billHTML = generateBillHTML(order, items, settings, qrUrl);
     
-    toast.success(`Added ${item.Item} to bill`);
-  };
-
-  const updateQuantity = (itemId: string, delta: number) => {
-    setCart(prevCart => {
-      return prevCart.map(item => 
-        item["Item Id"] === itemId 
-          ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-          : item
-      ).filter(item => item.quantity > 0);
-    });
-  };
-
-  const removeItem = (itemId: string) => {
-    setCart(prevCart => prevCart.filter(item => item["Item Id"] !== itemId));
-    toast.success("Item removed");
-  };
-
-  const subtotal = cart.reduce((sum, item) => sum + item.Price * item.quantity, 0);
-  const serviceChargeAmount = subtotal * serviceChargeRate / 100;
-  const grandTotal = subtotal + serviceChargeAmount;
-
-  const generateQRCode = () => {
-    if (!settings?.merchant_upi_id) return "";
-    const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(settings.restaurant_name)}&am=${grandTotal}&tn=Bill+Table+${tableId}&cu=INR`;
-    return `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
-  };
-
-  const generateBillHTML = () => {
-    const qrUrl = generateQRCode();
+    const blob = new Blob([billHTML], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bill-${order.order_id}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
     
+    toast.success("Bill downloaded successfully!");
+  };
+
+  const handlePrintBill = () => {
+    window.print();
+  };
+
+  const generateBillHTML = (order: Order, items: any[], settings: any, qrUrl: string) => {
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Bill - Table ${tableId}</title>
+        <title>Bill - ${order.order_id}</title>
         <style>
           body {
             font-family: 'Courier New', monospace;
@@ -195,36 +175,42 @@ export default function Billing() {
             font-size: 12px;
           }
           @media print {
-            body { padding: 10px; }
+            body {
+              padding: 10px;
+            }
           }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>${settings?.restaurant_name || 'Restaurant'}</h1>
-          ${settings?.restaurant_address ? `<p>${settings.restaurant_address}</p>` : ''}
+          <h1>${settings.restaurant_name}</h1>
+          ${settings.restaurant_address ? `<p>${settings.restaurant_address}</p>` : ''}
           <p style="margin-top: 10px; font-weight: bold;">TAX INVOICE</p>
         </div>
         
         <div class="info">
           <div class="info-row">
+            <span><strong>Order ID:</strong></span>
+            <span>${order.order_id}</span>
+          </div>
+          <div class="info-row">
             <span><strong>Table:</strong></span>
-            <span>${tableId}</span>
+            <span>${order.table_id}</span>
           </div>
           <div class="info-row">
             <span><strong>Date & Time:</strong></span>
-            <span>${new Date().toLocaleString()}</span>
+            <span>${new Date(order.created_at || '').toLocaleString()}</span>
           </div>
-          ${customerName ? `
+          ${order.customer_name ? `
           <div class="info-row">
             <span><strong>Customer:</strong></span>
-            <span>${customerName}</span>
+            <span>${order.customer_name}</span>
           </div>
           ` : ''}
-          ${customerPhone ? `
+          ${order.customer_phone ? `
           <div class="info-row">
             <span><strong>Phone:</strong></span>
-            <span>${customerPhone}</span>
+            <span>${order.customer_phone}</span>
           </div>
           ` : ''}
         </div>
@@ -235,7 +221,7 @@ export default function Billing() {
             <span class="item-qty">QTY</span>
             <span class="item-price">PRICE</span>
           </div>
-          ${cart.map(item => `
+          ${items.map(item => `
             <div class="item-row">
               <span class="item-name">${item.Item}</span>
               <span class="item-qty">${item.quantity}</span>
@@ -247,15 +233,15 @@ export default function Billing() {
         <div class="totals">
           <div class="total-row">
             <span>Subtotal:</span>
-            <span>₹${subtotal.toFixed(2)}</span>
+            <span>₹${(order.subtotal || 0).toFixed(2)}</span>
           </div>
           <div class="total-row">
-            <span>Service Charge (${serviceChargeRate}%):</span>
-            <span>₹${serviceChargeAmount.toFixed(2)}</span>
+            <span>Service Charge (${order.service_charge || 0}%):</span>
+            <span>₹${(order.service_charge_amount || 0).toFixed(2)}</span>
           </div>
           <div class="total-row grand">
             <span>TOTAL:</span>
-            <span>₹${grandTotal.toFixed(2)}</span>
+            <span>₹${order.total.toFixed(2)}</span>
           </div>
         </div>
         
@@ -270,417 +256,170 @@ export default function Billing() {
         <div class="footer">
           <p style="font-weight: bold; margin-bottom: 10px;">Thank you for dining with us!</p>
           <p>Visit us again soon</p>
+          ${order.payment_mode ? `<p style="margin-top: 10px;">Payment Mode: ${order.payment_mode.toUpperCase()}</p>` : ''}
         </div>
       </body>
       </html>
     `;
   };
 
-  const handleDownloadBill = () => {
-    const billHTML = generateBillHTML();
-    const blob = new Blob([billHTML], { type: 'text/html' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bill-table-${tableId}-${Date.now()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    
-    toast.success("Bill downloaded successfully!");
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading bill...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handlePrintBill = () => {
-    const billHTML = generateBillHTML();
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(billHTML);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
-    }
-  };
+  if (!order || !settings) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Bill not found</p>
+            <Button onClick={() => navigate(-1)} className="w-full mt-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const items = JSON.parse(order.items_json);
 
   return (
-    <div className="min-h-screen bg-[hsl(263,60%,25%)] pb-6">
-      {/* Header */}
-      <header className="bg-[hsl(25,100%,55%)] text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
+    <div className="min-h-screen bg-background pb-6">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-lg print:hidden">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="text-primary-foreground hover:bg-primary-hover"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
             <div>
-              <h1 className="text-2xl font-bold">Billing System</h1>
-              <p className="text-sm opacity-90">Create and print bills</p>
+              <h1 className="text-2xl font-bold">Bill Details</h1>
+              <p className="text-sm opacity-90">Order #{order.order_id}</p>
             </div>
-            <ThemeControls variant="compact" />
           </div>
-
-          {/* Step Indicator */}
-          <div className="flex items-center justify-between max-w-2xl">
-            {[
-              { step: 1, label: "Menu" },
-              { step: 2, label: "Cart" },
-              { step: 3, label: "Create Bill" },
-              { step: 4, label: "Download/Print" }
-            ].map(({ step, label }, index) => (
-              <div key={step} className="flex items-center flex-1">
-                <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                    currentStep >= step ? 'bg-white text-[hsl(25,100%,55%)]' : 'bg-white/30 text-white'
-                  }`}>
-                    {step}
-                  </div>
-                  <p className={`text-xs mt-1 ${currentStep >= step ? 'text-white font-semibold' : 'text-white/70'}`}>
-                    {label}
-                  </p>
-                </div>
-                {index < 3 && (
-                  <div className={`flex-1 h-1 mx-2 ${
-                    currentStep > step ? 'bg-white' : 'bg-white/30'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
+          <ThemeControls variant="compact" />
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 pt-6">
-        {/* Step 1: Menu Selection */}
-        {currentStep === 1 && (
-          <>
-            {isLoading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-32 w-full" />
+      <div className="max-w-2xl mx-auto px-4 pt-6 space-y-6">
+        <Card className="rounded-xl shadow-lg">
+          <CardHeader className="text-center border-b">
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">{settings.restaurant_name}</CardTitle>
+              {settings.restaurant_address && (
+                <p className="text-sm text-muted-foreground">{settings.restaurant_address}</p>
+              )}
+              <p className="text-xs font-semibold text-primary">TAX INVOICE</p>
+            </div>
+          </CardHeader>
+          
+          <CardContent className="pt-6 space-y-6">
+            {/* Order Info */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Order ID</p>
+                <p className="font-semibold">{order.order_id}</p>
               </div>
-            ) : categoryNames.length > 0 ? (
-              <Tabs defaultValue={categoryNames[0]} className="w-full">
-                <TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-6 bg-[hsl(263,60%,35%)]">
-                  {categoryNames.map((category) => (
-                    <TabsTrigger 
-                      key={category} 
-                      value={category} 
-                      className="whitespace-nowrap data-[state=active]:bg-[hsl(142,76%,36%)] data-[state=active]:text-white"
-                    >
-                      {category}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              <div>
+                <p className="text-muted-foreground">Table</p>
+                <p className="font-semibold">{order.table_id}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Date & Time</p>
+                <p className="font-semibold">{new Date(order.created_at || '').toLocaleString()}</p>
+              </div>
+              {order.customer_name && (
+                <div>
+                  <p className="text-muted-foreground">Customer</p>
+                  <p className="font-semibold">{order.customer_name}</p>
+                </div>
+              )}
+            </div>
 
-                {categoryNames.map((category) => (
-                  <TabsContent key={category} value={category} className="space-y-3">
-                    {categories[category].map((item) => (
-                      <MenuItemCard
-                        key={item["Item Id"]}
-                        item={item}
-                        onAddToCart={handleAddToCart}
-                      />
-                    ))}
-                  </TabsContent>
-                ))}
-              </Tabs>
-            ) : (
-              <div className="text-center py-12 text-white">
-                <p>No menu items available</p>
+            {/* Items */}
+            <div className="border-t border-b py-4 space-y-3">
+              <div className="flex justify-between font-semibold text-sm pb-2 border-b">
+                <span className="flex-1">ITEM</span>
+                <span className="w-16 text-center">QTY</span>
+                <span className="w-20 text-right">PRICE</span>
+              </div>
+              {items.map((item: any, index: number) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="flex-1">{item.Item}</span>
+                  <span className="w-16 text-center">{item.quantity}</span>
+                  <span className="w-20 text-right">₹{(item.Price * item.quantity).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Totals */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal</span>
+                <span>₹{(order.subtotal || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Service Charge ({order.service_charge || 0}%)</span>
+                <span>₹{(order.service_charge_amount || 0).toFixed(2)}</span>
+              </div>
+              <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                <span>TOTAL</span>
+                <span className="text-primary">₹{order.total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* QR Code */}
+            {qrUrl && (
+              <div className="border rounded-lg p-6 text-center bg-secondary/20">
+                <p className="font-semibold mb-3">Scan to Pay</p>
+                <div className="bg-white p-4 rounded-lg inline-block">
+                  <img src={qrUrl} alt="UPI Payment QR Code" className="w-48 h-48" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">Scan with any UPI app</p>
               </div>
             )}
 
-            {/* Floating Cart Button */}
-            {totalItems > 0 && (
-              <div className="fixed bottom-6 right-6">
-                <Button
-                  size="lg"
-                  onClick={() => setCurrentStep(2)}
-                  className="rounded-full shadow-lg bg-[hsl(25,100%,55%)] hover:bg-[hsl(25,100%,45%)] text-white h-16 px-6"
-                >
-                  <ShoppingCart className="w-5 h-5 mr-2" />
-                  View Cart ({totalItems})
-                </Button>
+            {/* Payment Mode */}
+            {order.payment_mode && (
+              <div className="text-center text-sm">
+                <span className="inline-block px-4 py-2 bg-secondary rounded-full">
+                  Payment Mode: <strong>{order.payment_mode.toUpperCase()}</strong>
+                </span>
               </div>
             )}
-          </>
-        )}
 
-        {/* Step 2: Cart Review */}
-        {currentStep === 2 && (
-          <div className="space-y-4">
-            <Button
-              variant="ghost"
-              onClick={() => setCurrentStep(1)}
-              className="text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Menu
-            </Button>
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 print:hidden">
+              <Button onClick={handleDownloadBill} className="flex-1">
+                <Download className="mr-2 h-4 w-4" />
+                Download Bill
+              </Button>
+              <Button onClick={handlePrintBill} variant="outline" className="flex-1">
+                <Share2 className="mr-2 h-4 w-4" />
+                Print Bill
+              </Button>
+            </div>
 
-            {cart.length === 0 ? (
-              <Card className="bg-white/10 border-white/20 text-white">
-                <CardContent className="py-12 text-center">
-                  <p className="mb-4">No items in cart</p>
-                  <Button onClick={() => setCurrentStep(1)}>Add Items</Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  {cart.map(item => (
-                    <Card key={item["Item Id"]} className="bg-white/10 border-white/20 text-white">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{item.Item}</h3>
-                            <p className="text-sm text-white/70">₹{item.Price} each</p>
-                          </div>
-                          
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                size="icon" 
-                                variant="outline" 
-                                onClick={() => updateQuantity(item["Item Id"], -1)}
-                                className="h-8 w-8 rounded-full border-white/30 text-white hover:bg-white/20"
-                              >
-                                <Minus className="w-4 h-4" />
-                              </Button>
-                              <span className="font-semibold w-8 text-center">{item.quantity}</span>
-                              <Button 
-                                size="icon" 
-                                variant="outline" 
-                                onClick={() => updateQuantity(item["Item Id"], 1)}
-                                className="h-8 w-8 rounded-full border-white/30 text-white hover:bg-white/20"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
-                                onClick={() => removeItem(item["Item Id"])}
-                                className="h-8 w-8 text-red-300 hover:text-red-400"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                            
-                            <div className="text-right min-w-[80px]">
-                              <p className="font-bold">₹{(item.Price * item.quantity).toFixed(2)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <Card className="bg-white/10 border-white/20 text-white">
-                  <CardContent className="p-6 space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Subtotal</span>
-                        <span>₹{subtotal.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm text-white/70">
-                        <span>Service Charge ({serviceChargeRate}%)</span>
-                        <span>₹{serviceChargeAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="border-t border-white/20 pt-2 flex justify-between font-bold text-xl">
-                        <span>Total</span>
-                        <span>₹{grandTotal.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <Button 
-                      onClick={() => setCurrentStep(3)} 
-                      className="w-full bg-[hsl(25,100%,55%)] hover:bg-[hsl(25,100%,45%)] text-white"
-                    >
-                      Proceed to Bill Creation
-                    </Button>
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Customer Details & Bill Preview */}
-        {currentStep === 3 && (
-          <div className="space-y-4">
-            <Button
-              variant="ghost"
-              onClick={() => setCurrentStep(2)}
-              className="text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Cart
-            </Button>
-
-            <Card className="bg-white/10 border-white/20 text-white">
-              <CardHeader>
-                <CardTitle className="text-white">Customer Details (Optional)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customer_name" className="text-white">Customer Name</Label>
-                  <Input
-                    id="customer_name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Enter customer name"
-                    className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer_phone" className="text-white">Phone Number</Label>
-                  <Input
-                    id="customer_phone"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Enter phone number"
-                    className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white">
-              <CardHeader className="text-center border-b">
-                <div className="space-y-2">
-                  <CardTitle className="text-2xl">{settings?.restaurant_name || 'Restaurant'}</CardTitle>
-                  {settings?.restaurant_address && (
-                    <p className="text-sm text-muted-foreground">{settings.restaurant_address}</p>
-                  )}
-                  <p className="text-xs font-semibold text-primary">TAX INVOICE</p>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="pt-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Table</p>
-                    <p className="font-semibold">{tableId}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Date & Time</p>
-                    <p className="font-semibold">{new Date().toLocaleString()}</p>
-                  </div>
-                  {customerName && (
-                    <div>
-                      <p className="text-muted-foreground">Customer</p>
-                      <p className="font-semibold">{customerName}</p>
-                    </div>
-                  )}
-                  {customerPhone && (
-                    <div>
-                      <p className="text-muted-foreground">Phone</p>
-                      <p className="font-semibold">{customerPhone}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-b py-4 space-y-3">
-                  <div className="flex justify-between font-semibold text-sm pb-2 border-b">
-                    <span className="flex-1">ITEM</span>
-                    <span className="w-16 text-center">QTY</span>
-                    <span className="w-20 text-right">PRICE</span>
-                  </div>
-                  {cart.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span className="flex-1">{item.Item}</span>
-                      <span className="w-16 text-center">{item.quantity}</span>
-                      <span className="w-20 text-right">₹{(item.Price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span>₹{subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Service Charge ({serviceChargeRate}%)</span>
-                    <span>₹{serviceChargeAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                    <span>TOTAL</span>
-                    <span className="text-primary">₹{grandTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {settings?.merchant_upi_id && (
-                  <div className="border rounded-lg p-6 text-center bg-secondary/20">
-                    <p className="font-semibold mb-3">Scan to Pay</p>
-                    <div className="bg-white p-4 rounded-lg inline-block">
-                      <img src={generateQRCode()} alt="UPI Payment QR Code" className="w-48 h-48" />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3">Scan with any UPI app</p>
-                  </div>
-                )}
-
-                <Button 
-                  onClick={() => setCurrentStep(4)} 
-                  className="w-full"
-                >
-                  Continue to Download/Print
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Step 4: Download/Print */}
-        {currentStep === 4 && (
-          <div className="space-y-4">
-            <Card className="bg-white/10 border-white/20 text-white">
-              <CardHeader>
-                <CardTitle className="text-white text-center">Bill Ready!</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-center text-white/80">
-                  Your bill has been created successfully. You can now download or print it.
-                </p>
-
-                <div className="flex gap-3">
-                  <Button onClick={handleDownloadBill} className="flex-1 bg-[hsl(25,100%,55%)] hover:bg-[hsl(25,100%,45%)]">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Bill
-                  </Button>
-                  <Button onClick={handlePrintBill} variant="outline" className="flex-1 border-white/30 text-white hover:bg-white/20">
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print Bill
-                  </Button>
-                </div>
-
-                <Button 
-                  onClick={() => {
-                    setCart([]);
-                    setCustomerName("");
-                    setCustomerPhone("");
-                    setCurrentStep(1);
-                    toast.success("Ready for next bill");
-                  }}
-                  variant="outline"
-                  className="w-full border-white/30 text-white hover:bg-white/20"
-                >
-                  Create Another Bill
-                </Button>
-
-                <Button 
-                  onClick={() => navigate(`/menu?table=${tableId}`)}
-                  variant="ghost"
-                  className="w-full text-white hover:bg-white/10"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Menu
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+            {/* Footer */}
+            <div className="text-center pt-6 border-t">
+              <p className="font-semibold mb-2">Thank you for dining with us!</p>
+              <p className="text-sm text-muted-foreground">Visit us again soon</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
