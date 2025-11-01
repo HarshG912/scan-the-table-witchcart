@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Download } from "lucide-react";
+import { downloadQRCodesHTML } from "@/lib/qrService";
 
 export default function TenantRegistration() {
   const [loading, setLoading] = useState(false);
+  const [registeredTenantId, setRegisteredTenantId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     tenantName: "",
     restaurantName: "",
@@ -41,12 +43,13 @@ export default function TenantRegistration() {
 
       if (error) throw error;
 
-      toast({
-        title: "Tenant Registered",
-        description: `${formData.restaurantName} has been successfully registered.`,
-      });
+      setRegisteredTenantId(tenantId);
 
-      navigate(`/admin`);
+      toast({
+        title: "Tenant Registered Successfully",
+        description: `${formData.restaurantName} has been registered. Download QR codes below.`,
+        duration: 10000,
+      });
     } catch (error: any) {
       console.error("Error registering tenant:", error);
       toast({
@@ -56,6 +59,12 @@ export default function TenantRegistration() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadQRCodes = () => {
+    if (registeredTenantId) {
+      downloadQRCodesHTML(registeredTenantId, formData.restaurantName, formData.tableCount);
     }
   };
 
@@ -177,7 +186,7 @@ export default function TenantRegistration() {
                 />
               </div>
 
-              <Button type="submit" disabled={loading} className="w-full">
+              <Button type="submit" disabled={loading || !!registeredTenantId} className="w-full">
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -187,6 +196,28 @@ export default function TenantRegistration() {
                   "Register Tenant"
                 )}
               </Button>
+
+              {registeredTenantId && (
+                <div className="space-y-3 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleDownloadQRCodes}
+                    className="w-full"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Table QR Codes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate("/admin")}
+                    className="w-full"
+                  >
+                    Back to Admin Dashboard
+                  </Button>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>

@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Settings, Building2, Users, Plus } from "lucide-react";
+import { Loader2, Settings, Building2, Users, Plus, Download } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { downloadQRCodesHTML } from "@/lib/qrService";
 
 interface Tenant {
   id: string;
@@ -15,6 +16,10 @@ interface Tenant {
   contact_phone: string | null;
   is_active: boolean;
   created_at: string;
+}
+
+interface TenantSettings {
+  table_count: number;
 }
 
 export default function UniversalAdmin() {
@@ -78,6 +83,33 @@ export default function UniversalAdmin() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
+  };
+
+  const handleDownloadQRCodes = async (tenant: Tenant) => {
+    try {
+      const { data: settings, error } = await supabase
+        .from("tenant_settings")
+        .select("table_count")
+        .eq("tenant_id", tenant.id)
+        .single();
+
+      if (error) throw error;
+
+      if (settings) {
+        downloadQRCodesHTML(tenant.id, tenant.restaurant_name, settings.table_count);
+        toast({
+          title: "QR Codes Downloaded",
+          description: `QR codes for ${tenant.restaurant_name} have been generated.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error downloading QR codes:", error);
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: "Failed to download QR codes",
+      });
+    }
   };
 
   if (loading) {
@@ -171,6 +203,14 @@ export default function UniversalAdmin() {
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${tenant.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                         {tenant.is_active ? 'Active' : 'Inactive'}
                       </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleDownloadQRCodes(tenant)}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        QR Codes
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"

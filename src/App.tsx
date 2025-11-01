@@ -13,6 +13,7 @@ import TenantRegistration from "./pages/TenantRegistration";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { TenantLayout } from "./components/layouts/TenantLayout";
+import { UniversalAdminRoute } from "./components/routes/UniversalAdminRoute";
 
 const queryClient = new QueryClient();
 
@@ -34,8 +35,8 @@ const App = () => (
             <Route path="/" element={<NotFound />} />
             
             {/* Universal Admin Routes */}
-            <Route path="/admin" element={<UniversalAdmin />} />
-            <Route path="/admin/register-tenant" element={<TenantRegistration />} />
+            <Route path="/admin" element={<UniversalAdminRoute><UniversalAdmin /></UniversalAdminRoute>} />
+            <Route path="/admin/register-tenant" element={<UniversalAdminRoute><TenantRegistration /></UniversalAdminRoute>} />
             
             {/* Auth Route */}
             <Route path="/auth" element={<Auth />} />

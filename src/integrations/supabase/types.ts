@@ -179,7 +179,6 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
-          qr_code_url: string
           table_number: number
           tenant_id: string
         }
@@ -187,7 +186,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          qr_code_url: string
           table_number: number
           tenant_id: string
         }
@@ -195,7 +193,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          qr_code_url?: string
           table_number?: number
           tenant_id?: string
         }

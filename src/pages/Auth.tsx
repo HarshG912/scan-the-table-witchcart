@@ -36,12 +36,11 @@ export default function Auth() {
 
       if (error) throw error;
 
-      // Fetch user role to redirect appropriately
-      const { data: roles } = await supabase
+      // Fetch user role and tenant to redirect appropriately
+      const { data: roleData } = await supabase
         .from("user_roles")
-        .select("role")
+        .select("role, tenant_id")
         .eq("user_id", data.user.id)
-        .limit(1)
         .single();
 
       toast({
@@ -50,12 +49,26 @@ export default function Auth() {
       });
 
       // Role-based redirect
-      if (roles?.role === 'admin' || roles?.role === 'manager') {
+      if (roleData?.role === 'admin' && roleData?.tenant_id === null) {
+        // Universal admin
         navigate("/admin");
-      } else if (roles?.role === 'chef') {
-        navigate("/chef");
+      } else if (roleData?.tenant_id) {
+        // Tenant-specific role (chef, manager, waiter, tenant_admin)
+        if (roleData.role === 'chef') {
+          navigate(`/${roleData.tenant_id}/chef`);
+        } else if (roleData.role === 'tenant_admin' || roleData.role === 'manager') {
+          navigate(`/${roleData.tenant_id}/admin`);
+        } else {
+          navigate(`/${roleData.tenant_id}/waiter`);
+        }
       } else {
-        navigate("/menu");
+        // No valid role found
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: "No valid role assigned to this account.",
+        });
+        await supabase.auth.signOut();
       }
     } catch (error: any) {
       toast({
