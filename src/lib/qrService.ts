@@ -1,5 +1,6 @@
 export const generateTableQRUrl = (tenantId: string, tableNumber: number): string => {
-  const baseUrl = window.location.origin;
+  // Use environment variable for published domain, fallback to window.location.origin for development
+  const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
   return `${baseUrl}/${tenantId}/table/${tableNumber}`;
 };
 
