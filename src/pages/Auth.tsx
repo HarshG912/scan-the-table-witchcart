@@ -16,10 +16,26 @@ export default function Auth() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check if user is already logged in and redirect based on role
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        navigate("/chef");
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role, tenant_id")
+          .eq("user_id", session.user.id)
+          .single();
+
+        if (roleData?.role === 'admin' && roleData?.tenant_id === null) {
+          navigate("/admin");
+        } else if (roleData?.tenant_id) {
+          if (roleData.role === 'chef') {
+            navigate(`/${roleData.tenant_id}/chef`);
+          } else if (roleData.role === 'tenant_admin' || roleData.role === 'manager') {
+            navigate(`/${roleData.tenant_id}/admin`);
+          } else {
+            navigate(`/${roleData.tenant_id}/waiter`);
+          }
+        }
       }
     });
   }, [navigate]);
