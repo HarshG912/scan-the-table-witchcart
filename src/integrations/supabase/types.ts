@@ -488,7 +488,9 @@ export type Database = {
               total: number
             }[]
           }
-      get_user_tenant_id: { Args: never; Returns: string }
+      get_user_tenant_id:
+        | { Args: never; Returns: string }
+        | { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -19,11 +19,18 @@ export default function Auth() {
     // Check if user is already logged in and redirect based on role
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const { data: roleData } = await supabase
+        const { data: roleData, error: roleError } = await supabase
           .from("user_roles")
           .select("role, tenant_id")
           .eq("user_id", session.user.id)
           .single();
+
+        console.log("useEffect - Role query result:", { roleData, roleError });
+
+        if (roleError) {
+          console.error("useEffect - Role fetch error:", roleError);
+          return;
+        }
 
         if (roleData?.role === 'admin' && roleData?.tenant_id === null) {
           navigate("/admin");
@@ -53,11 +60,36 @@ export default function Auth() {
       if (error) throw error;
 
       // Fetch user role and tenant to redirect appropriately
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role, tenant_id")
         .eq("user_id", data.user.id)
         .single();
+
+      console.log("handleLogin - Role query result:", { roleData, roleError });
+
+      if (roleError) {
+        console.error("handleLogin - Role fetch error:", roleError);
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: `Failed to fetch user role: ${roleError.message}`,
+        });
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      if (!roleData) {
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: "No valid role assigned to this account.",
+        });
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
 
       toast({
         title: "Login successful",
@@ -65,10 +97,10 @@ export default function Auth() {
       });
 
       // Role-based redirect
-      if (roleData?.role === 'admin' && roleData?.tenant_id === null) {
+      if (roleData.role === 'admin' && roleData.tenant_id === null) {
         // Universal admin
         navigate("/admin");
-      } else if (roleData?.tenant_id) {
+      } else if (roleData.tenant_id) {
         // Tenant-specific role (chef, manager, waiter, tenant_admin)
         if (roleData.role === 'chef') {
           navigate(`/${roleData.tenant_id}/chef`);
