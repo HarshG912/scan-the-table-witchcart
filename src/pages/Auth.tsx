@@ -19,29 +19,45 @@ export default function Auth() {
     // Check if user is already logged in and redirect based on role
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const { data: roleData, error: roleError } = await supabase
+        const { data: rolesData, error: roleError } = await supabase
           .from("user_roles")
           .select("role, tenant_id")
-          .eq("user_id", session.user.id)
-          .single();
+          .eq("user_id", session.user.id);
 
-        console.log("useEffect - Role query result:", { roleData, roleError });
+        console.log("useEffect - Roles query result:", { rolesData, roleError });
 
         if (roleError) {
           console.error("useEffect - Role fetch error:", roleError);
           return;
         }
 
-        if (roleData?.role === 'admin' && roleData?.tenant_id === null) {
+        if (!rolesData || rolesData.length === 0) {
+          console.log("useEffect - No roles found");
+          return;
+        }
+
+        // Role priority: universal admin > manager > tenant_admin > chef > waiter
+        const universalAdmin = rolesData.find(r => r.role === 'admin' && r.tenant_id === null);
+        const manager = rolesData.find(r => r.role === 'manager' && r.tenant_id);
+        const tenantAdmin = rolesData.find(r => r.role === 'tenant_admin' && r.tenant_id);
+        const chef = rolesData.find(r => r.role === 'chef' && r.tenant_id);
+        const waiter = rolesData.find(r => r.role === 'waiter' && r.tenant_id);
+
+        if (universalAdmin) {
+          console.log("useEffect - Redirecting to /admin");
           navigate("/admin");
-        } else if (roleData?.tenant_id) {
-          if (roleData.role === 'chef') {
-            navigate(`/${roleData.tenant_id}/chef`);
-          } else if (roleData.role === 'tenant_admin' || roleData.role === 'manager') {
-            navigate(`/${roleData.tenant_id}/admin`);
-          } else {
-            navigate(`/${roleData.tenant_id}/waiter`);
-          }
+        } else if (manager) {
+          console.log("useEffect - Redirecting to analytics:", `/${manager.tenant_id}/analytics`);
+          navigate(`/${manager.tenant_id}/analytics`);
+        } else if (tenantAdmin) {
+          console.log("useEffect - Redirecting to tenant admin:", `/${tenantAdmin.tenant_id}/admin`);
+          navigate(`/${tenantAdmin.tenant_id}/admin`);
+        } else if (chef) {
+          console.log("useEffect - Redirecting to chef:", `/${chef.tenant_id}/chef`);
+          navigate(`/${chef.tenant_id}/chef`);
+        } else if (waiter) {
+          console.log("useEffect - Redirecting to waiter:", `/${waiter.tenant_id}/waiter`);
+          navigate(`/${waiter.tenant_id}/waiter`);
         }
       }
     });
@@ -59,28 +75,27 @@ export default function Auth() {
 
       if (error) throw error;
 
-      // Fetch user role and tenant to redirect appropriately
-      const { data: roleData, error: roleError } = await supabase
+      // Fetch user roles to redirect appropriately
+      const { data: rolesData, error: roleError } = await supabase
         .from("user_roles")
         .select("role, tenant_id")
-        .eq("user_id", data.user.id)
-        .single();
+        .eq("user_id", data.user.id);
 
-      console.log("handleLogin - Role query result:", { roleData, roleError });
+      console.log("handleLogin - Roles query result:", { rolesData, roleError });
 
       if (roleError) {
         console.error("handleLogin - Role fetch error:", roleError);
         toast({
           variant: "destructive",
           title: "Access Denied",
-          description: `Failed to fetch user role: ${roleError.message}`,
+          description: `Failed to fetch user roles: ${roleError.message}`,
         });
         await supabase.auth.signOut();
         setLoading(false);
         return;
       }
 
-      if (!roleData) {
+      if (!rolesData || rolesData.length === 0) {
         toast({
           variant: "destructive",
           title: "Access Denied",
@@ -96,23 +111,29 @@ export default function Auth() {
         description: "Redirecting...",
       });
 
-      // Role-based redirect
-      if (roleData.role === 'admin' && roleData.tenant_id === null) {
-        // Universal admin
+      // Role priority: universal admin > manager > tenant_admin > chef > waiter
+      const universalAdmin = rolesData.find(r => r.role === 'admin' && r.tenant_id === null);
+      const manager = rolesData.find(r => r.role === 'manager' && r.tenant_id);
+      const tenantAdmin = rolesData.find(r => r.role === 'tenant_admin' && r.tenant_id);
+      const chef = rolesData.find(r => r.role === 'chef' && r.tenant_id);
+      const waiter = rolesData.find(r => r.role === 'waiter' && r.tenant_id);
+
+      if (universalAdmin) {
+        console.log("handleLogin - Redirecting to /admin");
         navigate("/admin");
-      } else if (roleData.tenant_id) {
-        // Tenant-specific role (chef, manager, waiter, tenant_admin)
-        if (roleData.role === 'manager') {
-          navigate(`/${roleData.tenant_id}/analytics`);
-        } else if (roleData.role === 'chef') {
-          navigate(`/${roleData.tenant_id}/chef`);
-        } else if (roleData.role === 'tenant_admin') {
-          navigate(`/${roleData.tenant_id}/admin`);
-        } else {
-          navigate(`/${roleData.tenant_id}/waiter`);
-        }
+      } else if (manager) {
+        console.log("handleLogin - Redirecting to analytics:", `/${manager.tenant_id}/analytics`);
+        navigate(`/${manager.tenant_id}/analytics`);
+      } else if (tenantAdmin) {
+        console.log("handleLogin - Redirecting to tenant admin:", `/${tenantAdmin.tenant_id}/admin`);
+        navigate(`/${tenantAdmin.tenant_id}/admin`);
+      } else if (chef) {
+        console.log("handleLogin - Redirecting to chef:", `/${chef.tenant_id}/chef`);
+        navigate(`/${chef.tenant_id}/chef`);
+      } else if (waiter) {
+        console.log("handleLogin - Redirecting to waiter:", `/${waiter.tenant_id}/waiter`);
+        navigate(`/${waiter.tenant_id}/waiter`);
       } else {
-        // No valid role found
         toast({
           variant: "destructive",
           title: "Access Denied",
