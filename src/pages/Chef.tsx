@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Order, CartItem } from "@/types/menu";
@@ -20,6 +20,7 @@ export default function Cook() {
   const [userId, setUserId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { tenantId } = useParams<{ tenantId: string }>();
   
   // Enable automatic bill generation
   useBillGenerator();
@@ -87,8 +88,9 @@ export default function Cook() {
 
     const { data: roles } = await supabase
       .from("user_roles")
-      .select("role")
+      .select("role, tenant_id")
       .eq("user_id", session.user.id)
+      .eq("tenant_id", tenantId)
       .in("role", ["chef", "manager"]);
 
     if (!roles || roles.length === 0) {
@@ -308,24 +310,14 @@ export default function Cook() {
           </Button>
         }
         navigationLinks={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => navigate("/admin")}
-              size="sm"
-              className="bg-white/10 text-white hover:bg-white/20"
-            >
-              Admin
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => navigate("/analytics")}
-              size="sm"
-              className="bg-white/10 text-white hover:bg-white/20"
-            >
-              Analytics
-            </Button>
-          </>
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/${tenantId}/admin`)}
+            size="sm"
+            className="bg-white/10 text-white hover:bg-white/20"
+          >
+            Admin Panel
+          </Button>
         }
         onLogout={handleLogout}
       />
