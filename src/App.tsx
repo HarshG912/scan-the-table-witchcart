@@ -10,6 +10,7 @@ import TenantCart from "./pages/TenantCart";
 import TenantBilling from "./pages/TenantBilling";
 import TenantAdmin from "./pages/TenantAdmin";
 import TenantManagement from "./pages/TenantManagement";
+import TenantAnalytics from "./pages/TenantAnalytics";
 import Chef from "./pages/Chef";
 import UniversalAdmin from "./pages/UniversalAdmin";
 import TenantRegistration from "./pages/TenantRegistration";
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="billing" element={<TenantBilling />} />
               <Route path="admin" element={<TenantRoute allowedRoles={['tenant_admin', 'manager']}><TenantAdmin /></TenantRoute>} />
               <Route path="chef" element={<TenantRoute allowedRoles={['chef', 'manager']}><Chef /></TenantRoute>} />
+              <Route path="analytics" element={<TenantRoute allowedRoles={['manager']}><TenantAnalytics /></TenantRoute>} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

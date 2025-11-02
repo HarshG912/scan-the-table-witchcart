@@ -77,6 +77,7 @@ export default function Cook() {
   }, []);
 
   const [cookName, setCookName] = useState<string>("");
+  const [isManager, setIsManager] = useState(false);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -106,6 +107,9 @@ export default function Cook() {
       return;
     }
 
+    const isManagerRole = roles.some(r => r.role === 'manager');
+    setIsManager(isManagerRole);
+    
     setUserId(session.user.id);
     setCookName(session.user.email?.split('@')[0] || 'Chef');
     setIsAuthenticated(true);
@@ -310,14 +314,26 @@ export default function Cook() {
           </Button>
         }
         navigationLinks={
-          <Button
-            variant="secondary"
-            onClick={() => navigate(`/${tenantId}/admin`)}
-            size="sm"
-            className="bg-white/10 text-white hover:bg-white/20"
-          >
-            Admin Panel
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => navigate(`/${tenantId}/admin`)}
+              size="sm"
+              className="bg-white/10 text-white hover:bg-white/20"
+            >
+              Admin Panel
+            </Button>
+            {isManager && (
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/${tenantId}/analytics`)}
+                size="sm"
+                className="bg-white/10 text-white hover:bg-white/20"
+              >
+                Analytics
+              </Button>
+            )}
+          </div>
         }
         onLogout={handleLogout}
       />

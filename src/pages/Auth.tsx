@@ -102,9 +102,11 @@ export default function Auth() {
         navigate("/admin");
       } else if (roleData.tenant_id) {
         // Tenant-specific role (chef, manager, waiter, tenant_admin)
-        if (roleData.role === 'chef') {
+        if (roleData.role === 'manager') {
+          navigate(`/${roleData.tenant_id}/analytics`);
+        } else if (roleData.role === 'chef') {
           navigate(`/${roleData.tenant_id}/chef`);
-        } else if (roleData.role === 'tenant_admin' || roleData.role === 'manager') {
+        } else if (roleData.role === 'tenant_admin') {
           navigate(`/${roleData.tenant_id}/admin`);
         } else {
           navigate(`/${roleData.tenant_id}/waiter`);

@@ -25,6 +25,7 @@ export default function TenantAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [isManager, setIsManager] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { tenantId } = useParams<{ tenantId: string }>();
@@ -58,6 +59,9 @@ export default function TenantAdmin() {
       setTimeout(() => navigate("/auth"), 2000);
       return;
     }
+
+    const isManagerRole = roles.some(r => r.role === 'manager');
+    setIsManager(isManagerRole);
 
     await fetchSettings();
   };
@@ -148,14 +152,26 @@ export default function TenantAdmin() {
           </div>
         }
         navigationLinks={
-          <Button
-            variant="secondary"
-            onClick={() => navigate(`/${tenantId}/chef`)}
-            size="sm"
-            className="bg-white/10 text-white hover:bg-white/20"
-          >
-            Kitchen Dashboard
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => navigate(`/${tenantId}/chef`)}
+              size="sm"
+              className="bg-white/10 text-white hover:bg-white/20"
+            >
+              Kitchen Dashboard
+            </Button>
+            {isManager && (
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/${tenantId}/analytics`)}
+                size="sm"
+                className="bg-white/10 text-white hover:bg-white/20"
+              >
+                Analytics
+              </Button>
+            )}
+          </div>
         }
         onLogout={handleLogout}
       />

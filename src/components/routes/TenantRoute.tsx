@@ -19,8 +19,8 @@ export const TenantRoute = ({ children, allowedRoles }: TenantRouteProps) => {
     },
   });
 
-  const { data: role, isLoading: roleLoading } = useQuery({
-    queryKey: ['userRole', session?.user?.id],
+  const { data: roleData, isLoading: roleLoading } = useQuery({
+    queryKey: ['userRole', session?.user?.id, tenantId],
     queryFn: async () => {
       if (!session?.user?.id) return null;
       
@@ -28,7 +28,7 @@ export const TenantRoute = ({ children, allowedRoles }: TenantRouteProps) => {
         .from('user_roles')
         .select('role, tenant_id')
         .eq('user_id', session.user.id)
-        .single();
+        .eq('tenant_id', tenantId);
       
       return data;
     },
@@ -47,15 +47,16 @@ export const TenantRoute = ({ children, allowedRoles }: TenantRouteProps) => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!role) {
+  if (!roleData || roleData.length === 0) {
     return <Navigate to="/" replace />;
   }
 
-  if (role.tenant_id !== tenantId) {
-    return <Navigate to="/" replace />;
-  }
+  // Check if user has any of the allowed roles for this tenant
+  const hasAllowedRole = roleData.some(r => 
+    r.tenant_id === tenantId && allowedRoles.includes(r.role)
+  );
 
-  if (!allowedRoles.includes(role.role)) {
+  if (!hasAllowedRole) {
     return <Navigate to="/" replace />;
   }
 
