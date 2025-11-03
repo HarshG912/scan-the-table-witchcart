@@ -16,6 +16,7 @@ export interface Order {
   id?: string;
   order_id: string;
   table_id: string;
+  tenant_id?: string;
   items_json: string;
   subtotal?: number;
   service_charge?: number;

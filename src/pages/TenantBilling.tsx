@@ -37,9 +37,14 @@ export default function TenantBilling() {
       if (orderError) throw orderError;
       setOrder(orderData);
 
-      // Use existing QR code from order if available
+      // Use existing QR code from order if available, or regenerate if missing
       if (orderData && orderData.qr_url) {
         setQrUrl(orderData.qr_url);
+      } else if (orderData && settings?.merchant_upi_id && settings?.restaurant_name) {
+        // Regenerate QR code if missing
+        const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(settings.restaurant_name)}&am=${orderData.total}&tn=Order+${orderData.order_id}&cu=INR`;
+        const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
+        setQrUrl(qrCodeUrl);
       }
     } catch (error) {
       console.error("Error fetching data:", error);

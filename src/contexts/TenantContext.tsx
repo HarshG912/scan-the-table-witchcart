@@ -19,6 +19,7 @@ interface TenantSettings {
   service_charge: number;
   restaurant_name: string;
   restaurant_address: string;
+  merchant_upi_id?: string;
   payment_modes: any;
   menu_sheet_url: string | null;
   theme_config: any;

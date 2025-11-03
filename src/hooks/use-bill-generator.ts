@@ -24,11 +24,11 @@ export function useBillGenerator() {
             try {
               console.log('Auto-generating bill for order:', order.order_id);
               
-              // Fetch restaurant settings
+              // Fetch tenant-specific restaurant settings
               const { data: settings } = await supabase
-                .from('settings')
+                .from('tenant_settings')
                 .select('restaurant_name, restaurant_address, merchant_upi_id')
-                .limit(1)
+                .eq('tenant_id', order.tenant_id)
                 .single();
 
               const restaurantName = settings?.restaurant_name || 'Scan The Table';

@@ -33,13 +33,14 @@ export default function Billing() {
         .single();
 
       if (orderError) throw orderError;
+      if (!orderData) throw new Error("Order not found");
       setOrder(orderData);
 
-      // Fetch restaurant settings
+      // Fetch tenant-specific restaurant settings
       const { data: settingsData, error: settingsError } = await supabase
-        .from("settings")
+        .from("tenant_settings")
         .select("restaurant_name, restaurant_address, merchant_upi_id")
-        .limit(1)
+        .eq("tenant_id", orderData.tenant_id)
         .single();
 
       if (settingsError) throw settingsError;
