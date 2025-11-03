@@ -8,6 +8,7 @@ const corsHeaders = {
 interface PaymentRequest {
   order_id: string;
   amount: number;
+  tenant_id: string;
 }
 
 Deno.serve(async (req) => {
@@ -23,14 +24,14 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Parse request body
-    const { order_id, amount }: PaymentRequest = await req.json();
+    const { order_id, amount, tenant_id }: PaymentRequest = await req.json();
 
-    console.log('Generating payment URL for order:', order_id, 'amount:', amount);
+    console.log('Generating payment URL for order:', order_id, 'amount:', amount, 'tenant:', tenant_id);
 
     // Validate input
-    if (!order_id || !amount || amount <= 0) {
+    if (!order_id || !amount || amount <= 0 || !tenant_id) {
       return new Response(
-        JSON.stringify({ error: 'Invalid order_id or amount' }),
+        JSON.stringify({ error: 'Invalid order_id, amount, or tenant_id' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -38,17 +39,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch merchant UPI ID from settings (server-side only)
+    // Fetch merchant UPI ID from tenant-specific settings
     const { data: settingsData, error: settingsError } = await supabase
-      .from('settings')
+      .from('tenant_settings')
       .select('merchant_upi_id')
-      .limit(1)
+      .eq('tenant_id', tenant_id)
       .single();
 
     if (settingsError || !settingsData?.merchant_upi_id) {
-      console.error('Error fetching merchant UPI:', settingsError);
+      console.error('Error fetching tenant merchant UPI:', settingsError);
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve payment settings' }),
+        JSON.stringify({ error: 'Failed to retrieve payment settings for tenant' }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
