@@ -56,15 +56,15 @@ export default function TenantAnalytics() {
       .select("role, tenant_id")
       .eq("user_id", session.user.id)
       .eq("tenant_id", tenantId)
-      .eq("role", "manager");
+      .in("role", ["manager", "tenant_admin"]);
 
     if (!roles || roles.length === 0) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "You need manager privileges to access analytics.",
+        description: "You need manager or admin privileges to access analytics.",
       });
-      navigate(`/${tenantId}/chef`);
+      navigate(`/${tenantId}/admin`);
       return;
     }
 

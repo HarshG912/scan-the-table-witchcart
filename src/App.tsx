@@ -54,7 +54,7 @@ const App = () => (
               <Route path="billing" element={<TenantBilling />} />
               <Route path="admin" element={<TenantRoute allowedRoles={['tenant_admin', 'manager']}><TenantAdmin /></TenantRoute>} />
               <Route path="chef" element={<TenantRoute allowedRoles={['chef', 'manager']}><Chef /></TenantRoute>} />
-              <Route path="analytics" element={<TenantRoute allowedRoles={['manager']}><TenantAnalytics /></TenantRoute>} />
+              <Route path="analytics" element={<TenantRoute allowedRoles={['manager', 'tenant_admin']}><TenantAnalytics /></TenantRoute>} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
