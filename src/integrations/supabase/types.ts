@@ -433,8 +433,8 @@ export type Database = {
         Returns: string
       }
       generate_order_id:
-        | { Args: { p_tenant_id: string }; Returns: string }
         | { Args: never; Returns: string }
+        | { Args: { p_tenant_id: string }; Returns: string }
       get_orders_by_table:
         | {
             Args: { p_table_id: string }
