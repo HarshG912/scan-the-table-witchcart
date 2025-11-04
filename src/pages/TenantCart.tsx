@@ -94,13 +94,16 @@ export default function TenantCart() {
   };
 
   const handleConfirmOrder = async () => {
+    // Pre-flight validation: Check authentication
     if (!user || !session) {
+      console.log("Order blocked: User not authenticated");
       setShowAuthDialog(true);
       return;
     }
 
     const { data: { session: currentSession }, error } = await supabase.auth.getSession();
     if (error || !currentSession) {
+      console.log("Order blocked: Session validation failed", error);
       setShowAuthDialog(true);
       return;
     }
@@ -108,13 +111,51 @@ export default function TenantCart() {
     if (isPlacingOrder) return;
 
     setIsPlacingOrder(true);
+    
+    console.log("Starting order creation:", {
+      tenantId,
+      tableNumber,
+      userId: user.id,
+      paymentMode,
+      cartItems: cart.length,
+      cartTotal: cart.reduce((sum, item) => sum + item.Price * item.quantity, 0)
+    });
+
     try {
+      // Pre-flight validation: Verify tenant and table exist
+      const { data: tableData, error: tableError } = await supabase
+        .from("restaurant_tables")
+        .select("id, is_active, tenant_id")
+        .eq("tenant_id", tenantId)
+        .eq("table_number", parseInt(tableNumber!))
+        .single();
+
+      if (tableError || !tableData) {
+        console.error("Table validation failed:", { tenantId, tableNumber, tableError });
+        toast.error("Invalid table. Please scan the QR code again.");
+        return;
+      }
+
+      if (!tableData.is_active) {
+        console.error("Table is not active:", { tenantId, tableNumber });
+        toast.error("This table is currently inactive. Please contact staff.");
+        return;
+      }
+
+      console.log("Table validation passed:", tableData);
+
       // Generate order ID using tenant-aware function
       const { data: orderIdData, error: orderIdError } = await supabase.rpc("generate_order_id", {
         p_tenant_id: tenantId
       });
-      if (orderIdError) throw orderIdError;
+      
+      if (orderIdError) {
+        console.error("Order ID generation failed:", orderIdError);
+        throw new Error("Failed to generate order ID");
+      }
+      
       const newOrderId = orderIdData;
+      console.log("Generated order ID:", newOrderId);
 
       const subtotal = cart.reduce((sum, item) => sum + item.Price * item.quantity, 0);
       const serviceChargeAmount = subtotal * serviceChargeRate / 100;
@@ -123,6 +164,7 @@ export default function TenantCart() {
       let upiString = "";
 
       if (paymentMode === "upi") {
+        console.log("Generating UPI payment URL...");
         const { data: paymentData, error: paymentError } = await supabase.functions.invoke('generate-payment-url', {
           body: {
             order_id: newOrderId,
@@ -130,15 +172,20 @@ export default function TenantCart() {
             tenant_id: tenantId
           }
         });
+        
         if (paymentError || !paymentData) {
-          throw new Error('Failed to generate payment URL');
+          console.error("Payment URL generation failed:", paymentError);
+          throw new Error("Failed to generate payment URL. Please try cash or card payment.");
         }
+        
         upiString = paymentData.upi_url;
         qrUrl = paymentData.qr_url;
         setUpiUrl(upiString);
+        console.log("Payment URL generated successfully");
       }
 
-      const { error } = await supabase.from("orders").insert({
+      console.log("Inserting order into database...");
+      const { error: insertError } = await supabase.from("orders").insert({
         tenant_id: tenantId,
         order_id: newOrderId,
         table_id: tableNumber!,
@@ -157,9 +204,15 @@ export default function TenantCart() {
         customer_email: userProfile?.email || user!.email || "",
         customer_phone: userProfile?.phone || null,
       });
-      if (error) throw error;
+      
+      if (insertError) {
+        console.error("Order insert failed:", insertError);
+        throw insertError;
+      }
 
+      console.log("Order created successfully:", newOrderId);
       setOrderId(newOrderId);
+      
       if (paymentMode === "upi") {
         setQrUrl(qrUrl);
         setShowPayment(true);
@@ -169,9 +222,48 @@ export default function TenantCart() {
         toast.success(`Order placed successfully! Payment mode: ${paymentMode.toUpperCase()}`);
         navigate(`/${tenantId}/table/${tableNumber}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating order:", error);
-      toast.error("Failed to place order. Please try again.");
+      
+      // Enhanced error handling with specific messages
+      let errorMessage = "Failed to place order. Please try again.";
+      
+      if (error?.message) {
+        if (error.message.includes("row-level security") || error.message.includes("policy")) {
+          errorMessage = "Unable to place order. Please ensure you're logged in and the table is valid.";
+          console.error("RLS Policy violation:", {
+            tenantId,
+            tableNumber,
+            userId: user?.id,
+            error: error.message
+          });
+        } else if (error.message.includes("payment")) {
+          errorMessage = "Failed to generate payment details. Please try cash or card payment.";
+        } else if (error.message.includes("generate_order_id")) {
+          errorMessage = "Failed to generate order ID. Please try again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage, { duration: 5000 });
+      
+      // Comprehensive error logging for debugging
+      console.error("Complete order creation failure details:", {
+        tenantId,
+        tableNumber,
+        userId: user?.id,
+        userEmail: user?.email,
+        paymentMode,
+        cartItemCount: cart.length,
+        subtotal: cart.reduce((sum, item) => sum + item.Price * item.quantity, 0),
+        serviceChargeRate,
+        errorType: error?.name,
+        errorMessage: error?.message,
+        errorCode: error?.code,
+        errorDetails: error?.details,
+        fullError: error
+      });
     } finally {
       setIsPlacingOrder(false);
     }
