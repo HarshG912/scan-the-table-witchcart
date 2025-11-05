@@ -49,6 +49,7 @@ const App = () => (
             
             {/* Tenant-specific routes */}
             <Route path="/:tenantId" element={<TenantLayout />}>
+              {/* Public routes - no authentication required */}
               <Route path="table/:tableNumber" element={<TenantMenu />} />
               <Route path="cart/:tableNumber" element={<TenantCart />} />
               <Route path="billing" element={<TenantBilling />} />

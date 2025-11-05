@@ -10,6 +10,7 @@ import { Loader2, Save, Settings, ArrowLeft } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Switch } from "@/components/ui/switch";
+import { AddTenantUser } from "@/components/AddTenantUser";
 
 interface TenantInfo {
   id: string;
@@ -455,6 +456,9 @@ export default function TenantManagement() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* User Management Card */}
+          <AddTenantUser tenantId={tenantId!} />
         </div>
       </div>
     </div>
