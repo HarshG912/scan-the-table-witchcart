@@ -46,31 +46,18 @@ export function AddTenantUser({ tenantId, onUserAdded }: AddTenantUserProps) {
     setLoading(true);
 
     try {
-      // Create user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
+      // Call edge function to create user with admin privileges
+      const { data, error } = await supabase.functions.invoke('create-tenant-user', {
+        body: {
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+          tenantId: tenantId,
         },
       });
 
-      if (authError) throw authError;
-
-      if (!authData.user) {
-        throw new Error("Failed to create user account");
-      }
-
-      // Add role to user_roles table
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: authData.user.id,
-          role: formData.role,
-          tenant_id: tenantId,
-        });
-
-      if (roleError) throw roleError;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({
         title: "User Added",
