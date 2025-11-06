@@ -35,7 +35,18 @@ export const orderToBillData = (order: Order, restaurantName: string = "Scan The
   };
 };
 
-export const generateBillPDF = async (billData: BillData, qrUrl?: string): Promise<Blob> => {
+export const generateBillPDF = async (
+  billData: BillData, 
+  qrUrl?: string,
+  merchantUpiId?: string
+): Promise<Blob> => {
+  // Generate UPI QR code if not provided but merchant UPI is available
+  let finalQrUrl = qrUrl;
+  if (!finalQrUrl && merchantUpiId) {
+    const upiString = `upi://pay?pa=${merchantUpiId}&pn=${encodeURIComponent(billData.restaurantName)}&am=${billData.total.toFixed(2)}&tn=Order+${billData.orderId}&cu=INR`;
+    finalQrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
+  }
+  
   // Create a simple HTML bill with QR code
   const billHTML = `
     <!DOCTYPE html>
@@ -194,10 +205,10 @@ export const generateBillPDF = async (billData: BillData, qrUrl?: string): Promi
         </div>
       </div>
       
-      ${qrUrl ? `
+      ${finalQrUrl ? `
       <div class="qr-section">
         <p style="margin: 0 0 10px 0; font-weight: bold;">Scan to Pay</p>
-        <img src="${qrUrl}" alt="UPI Payment QR Code" />
+        <img src="${finalQrUrl}" alt="UPI Payment QR Code" />
         <p style="margin: 10px 0 0 0; font-size: 11px;">Scan with any UPI app</p>
       </div>
       ` : ''}
@@ -216,8 +227,12 @@ export const generateBillPDF = async (billData: BillData, qrUrl?: string): Promi
   return blob;
 };
 
-export const downloadBill = async (billData: BillData, qrUrl?: string) => {
-  const blob = await generateBillPDF(billData, qrUrl);
+export const downloadBill = async (
+  billData: BillData, 
+  qrUrl?: string, 
+  merchantUpiId?: string
+) => {
+  const blob = await generateBillPDF(billData, qrUrl, merchantUpiId);
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

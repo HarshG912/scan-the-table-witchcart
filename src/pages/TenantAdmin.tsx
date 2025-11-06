@@ -19,6 +19,7 @@ interface Settings {
   table_count: number;
   payment_modes: { cash: boolean; upi: boolean; card: boolean };
   menu_sheet_url: string | null;
+  require_customer_auth: boolean;
 }
 
 export default function TenantAdmin() {
@@ -107,6 +108,7 @@ export default function TenantAdmin() {
           table_count: settings.table_count,
           payment_modes: settings.payment_modes,
           menu_sheet_url: settings.menu_sheet_url,
+          require_customer_auth: settings.require_customer_auth,
         })
         .eq("id", settings.id);
 
@@ -295,6 +297,28 @@ export default function TenantAdmin() {
                     <Label htmlFor="card" className="font-normal cursor-pointer">Card</Label>
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Customer Authentication</Label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="require_customer_auth"
+                    checked={settings?.require_customer_auth ?? true}
+                    onCheckedChange={(checked) => 
+                      setSettings(prev => prev ? {
+                        ...prev,
+                        require_customer_auth: checked as boolean
+                      } : null)
+                    }
+                  />
+                  <Label htmlFor="require_customer_auth" className="font-normal cursor-pointer">
+                    Require customers to login before placing orders
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  When disabled, customers can place orders without authentication. Enable for order tracking and customer data collection.
+                </p>
               </div>
 
               <Button

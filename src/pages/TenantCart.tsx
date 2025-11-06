@@ -94,18 +94,22 @@ export default function TenantCart() {
   };
 
   const handleConfirmOrder = async () => {
-    // Pre-flight validation: Check authentication
-    if (!user || !session) {
+    // Pre-flight validation: Check authentication only if required
+    const requireAuth = settings?.require_customer_auth ?? true;
+    
+    if (requireAuth && (!user || !session)) {
       console.log("Order blocked: User not authenticated");
       setShowAuthDialog(true);
       return;
     }
 
-    const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-    if (error || !currentSession) {
-      console.log("Order blocked: Session validation failed", error);
-      setShowAuthDialog(true);
-      return;
+    if (requireAuth) {
+      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+      if (error || !currentSession) {
+        console.log("Order blocked: Session validation failed", error);
+        setShowAuthDialog(true);
+        return;
+      }
     }
 
     if (isPlacingOrder) return;
@@ -185,6 +189,8 @@ export default function TenantCart() {
       }
 
       console.log("Inserting order into database...");
+      const requireAuth = settings?.require_customer_auth ?? true;
+      
       const { error: insertError } = await supabase.from("orders").insert({
         tenant_id: tenantId,
         order_id: newOrderId,
@@ -199,9 +205,9 @@ export default function TenantCart() {
         payment_mode: paymentMode,
         qr_url: qrUrl || null,
         notes: "",
-        user_id: user!.id,
+        user_id: requireAuth && user ? user.id : null,
         customer_name: userProfile?.full_name || "Guest",
-        customer_email: userProfile?.email || user!.email || "",
+        customer_email: userProfile?.email || (user ? user.email : "") || "",
         customer_phone: userProfile?.phone || null,
       });
       
@@ -358,14 +364,17 @@ export default function TenantCart() {
         onOpenChange={setShowAuthDialog}
         onAuthSuccess={() => {
           setShowAuthDialog(false);
+          // Immediately fetch session and proceed with order
           supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
               setSession(session);
               setUser(session.user);
-              fetchUserProfile(session.user.id);
-              setTimeout(() => {
-                handleConfirmOrder();
-              }, 1000);
+              fetchUserProfile(session.user.id).then(() => {
+                // Delay slightly to ensure state is updated
+                setTimeout(() => {
+                  handleConfirmOrder();
+                }, 500);
+              });
             }
           });
         }}

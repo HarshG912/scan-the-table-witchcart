@@ -1,95 +1,161 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Share2 } from "lucide-react";
+import { ArrowLeft, Download, Printer, Plus, Minus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeControls } from "@/components/ThemeControls";
-import type { Order } from "@/types/menu";
+import { CartItem, MenuItem } from "@/types/menu";
+import { useQuery } from "@tanstack/react-query";
+import { fetchMenuItems, groupByCategory } from "@/lib/menuService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MenuItemCard } from "@/components/MenuItemCard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Billing() {
-  const [searchParams] = useSearchParams();
+  const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
-  const orderId = searchParams.get("order");
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<{ restaurant_name: string; restaurant_address: string } | null>(null);
-  const [qrUrl, setQrUrl] = useState("");
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [settings, setSettings] = useState<{ 
+    restaurant_name: string; 
+    restaurant_address: string; 
+    merchant_upi_id: string;
+    service_charge: number;
+  } | null>(null);
+
+  const { data: menuItems, isLoading: menuLoading } = useQuery({
+    queryKey: ["menu", tenantId],
+    queryFn: () => fetchMenuItems(tenantId!),
+    enabled: !!tenantId,
+  });
 
   useEffect(() => {
-    if (orderId) {
-      fetchOrderAndSettings();
+    if (tenantId) {
+      fetchSettings();
     }
-  }, [orderId]);
+  }, [tenantId]);
 
-  const fetchOrderAndSettings = async () => {
+  const fetchSettings = async () => {
     try {
-      // Fetch order details
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("order_id", orderId)
-        .single();
-
-      if (orderError) throw orderError;
-      if (!orderData) throw new Error("Order not found");
-      setOrder(orderData);
-
-      // Fetch tenant-specific restaurant settings
-      const { data: settingsData, error: settingsError } = await supabase
+      const { data, error } = await supabase
         .from("tenant_settings")
-        .select("restaurant_name, restaurant_address, merchant_upi_id")
-        .eq("tenant_id", orderData.tenant_id)
+        .select("restaurant_name, restaurant_address, merchant_upi_id, service_charge")
+        .eq("tenant_id", tenantId)
         .single();
 
-      if (settingsError) throw settingsError;
-      setSettings(settingsData);
-
-      // Generate QR code for UPI payment
-      if (orderData && settingsData?.merchant_upi_id) {
-        const upiString = `upi://pay?pa=${settingsData.merchant_upi_id}&pn=${encodeURIComponent(settingsData.restaurant_name)}&am=${orderData.total}&tn=Order+${orderId}&cu=INR`;
-        const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
-        setQrUrl(qrCodeUrl);
-      }
+      if (error) throw error;
+      setSettings(data);
     } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error("Failed to load bill details");
-    } finally {
-      setLoading(false);
+      console.error("Error fetching settings:", error);
+      toast.error("Failed to load restaurant settings");
     }
   };
 
-  const handleDownloadBill = () => {
-    if (!order || !settings) return;
+  const categories = menuItems ? groupByCategory(menuItems) : {};
+  const categoryNames = Object.keys(categories);
 
-    const items = JSON.parse(order.items_json);
-    const billHTML = generateBillHTML(order, items, settings, qrUrl);
+  const handleAddToCart = (item: MenuItem) => {
+    setCart((prevCart) => {
+      const existingItem = prevCart.find((i) => i["Item Id"] === item["Item Id"]);
+      if (existingItem) {
+        return prevCart.map((i) =>
+          i["Item Id"] === item["Item Id"]
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
+        );
+      }
+      return [...prevCart, { ...item, quantity: 1 }];
+    });
     
+    const quantity = cart.find((i) => i["Item Id"] === item["Item Id"])?.quantity || 0;
+    toast.success(`Added to bill — ${quantity + 1} × ${item.Item}`);
+  };
+
+  const updateQuantity = (itemId: string, delta: number) => {
+    setCart(prevCart => {
+      const updatedCart = prevCart.map(item => 
+        item["Item Id"] === itemId 
+          ? { ...item, quantity: Math.max(0, item.quantity + delta) }
+          : item
+      ).filter(item => item.quantity > 0);
+      return updatedCart;
+    });
+  };
+
+  const removeItem = (itemId: string) => {
+    setCart(prevCart => prevCart.filter(item => item["Item Id"] !== itemId));
+    toast.success("Item removed from bill");
+  };
+
+  const handleClearCart = () => {
+    setCart([]);
+    toast.success("Bill cleared");
+  };
+
+  const subtotal = cart.reduce((sum, item) => sum + item.Price * item.quantity, 0);
+  const serviceChargeRate = settings?.service_charge || 0;
+  const serviceChargeAmount = subtotal * serviceChargeRate / 100;
+  const grandTotal = subtotal + serviceChargeAmount;
+
+  const handleDownloadBill = () => {
+    if (cart.length === 0) {
+      toast.error("Please add items to the bill first");
+      return;
+    }
+
+    if (!settings) {
+      toast.error("Restaurant settings not loaded");
+      return;
+    }
+
+    const billHTML = generateBillHTML();
     const blob = new Blob([billHTML], { type: 'text/html' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bill-${order.order_id}.html`;
+    a.download = `bill-${Date.now()}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
     toast.success("Bill downloaded successfully!");
+    setCart([]); // Clear cart after download
   };
 
   const handlePrintBill = () => {
-    window.print();
+    if (cart.length === 0) {
+      toast.error("Please add items to the bill first");
+      return;
+    }
+
+    const printWindow = window.open('', '', 'height=600,width=800');
+    if (printWindow) {
+      printWindow.document.write(generateBillHTML());
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      setTimeout(() => {
+        printWindow.close();
+        setCart([]); // Clear cart after print
+      }, 100);
+    }
   };
 
-  const generateBillHTML = (order: Order, items: any[], settings: any, qrUrl: string) => {
+  const generateBillHTML = () => {
+    if (!settings) return '';
+
+    // Generate UPI QR code URL
+    const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(settings.restaurant_name)}&am=${grandTotal.toFixed(2)}&cu=INR`;
+    const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
+
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Bill - ${order.order_id}</title>
+        <title>Bill - ${settings.restaurant_name}</title>
         <style>
           body {
             font-family: 'Courier New', monospace;
@@ -191,29 +257,13 @@ export default function Billing() {
         
         <div class="info">
           <div class="info-row">
-            <span><strong>Order ID:</strong></span>
-            <span>${order.order_id}</span>
-          </div>
-          <div class="info-row">
-            <span><strong>Table:</strong></span>
-            <span>${order.table_id}</span>
-          </div>
-          <div class="info-row">
             <span><strong>Date & Time:</strong></span>
-            <span>${new Date(order.created_at || '').toLocaleString()}</span>
+            <span>${new Date().toLocaleString()}</span>
           </div>
-          ${order.customer_name ? `
           <div class="info-row">
-            <span><strong>Customer:</strong></span>
-            <span>${order.customer_name}</span>
+            <span><strong>Bill Type:</strong></span>
+            <span>Staff Generated</span>
           </div>
-          ` : ''}
-          ${order.customer_phone ? `
-          <div class="info-row">
-            <span><strong>Phone:</strong></span>
-            <span>${order.customer_phone}</span>
-          </div>
-          ` : ''}
         </div>
         
         <div class="items">
@@ -222,7 +272,7 @@ export default function Billing() {
             <span class="item-qty">QTY</span>
             <span class="item-price">PRICE</span>
           </div>
-          ${items.map(item => `
+          ${cart.map(item => `
             <div class="item-row">
               <span class="item-name">${item.Item}</span>
               <span class="item-qty">${item.quantity}</span>
@@ -234,193 +284,188 @@ export default function Billing() {
         <div class="totals">
           <div class="total-row">
             <span>Subtotal:</span>
-            <span>₹${(order.subtotal || 0).toFixed(2)}</span>
+            <span>₹${subtotal.toFixed(2)}</span>
           </div>
           <div class="total-row">
-            <span>Service Charge (${order.service_charge || 0}%):</span>
-            <span>₹${(order.service_charge_amount || 0).toFixed(2)}</span>
+            <span>Service Charge (${serviceChargeRate}%):</span>
+            <span>₹${serviceChargeAmount.toFixed(2)}</span>
           </div>
           <div class="total-row grand">
             <span>TOTAL:</span>
-            <span>₹${order.total.toFixed(2)}</span>
+            <span>₹${grandTotal.toFixed(2)}</span>
           </div>
         </div>
         
-        ${qrUrl ? `
         <div class="qr-section">
           <p style="margin: 0 0 10px 0; font-weight: bold;">Scan to Pay</p>
           <img src="${qrUrl}" alt="UPI Payment QR Code" />
           <p style="margin: 10px 0 0 0; font-size: 11px;">Scan with any UPI app</p>
         </div>
-        ` : ''}
         
         <div class="footer">
           <p style="font-weight: bold; margin-bottom: 10px;">Thank you for dining with us!</p>
           <p>Visit us again soon</p>
-          ${order.payment_mode ? `<p style="margin-top: 10px;">Payment Mode: ${order.payment_mode.toUpperCase()}</p>` : ''}
         </div>
       </body>
       </html>
     `;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading bill...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!order || !settings) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Bill not found</p>
-            <Button onClick={() => navigate(-1)} className="w-full mt-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go Back
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const items = JSON.parse(order.items_json);
-
   return (
     <div className="min-h-screen bg-background pb-6">
-      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-lg print:hidden">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate(`/${tenantId}/chef`)}
               className="text-primary-foreground hover:bg-primary-hover"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Bill Details</h1>
-              <p className="text-sm opacity-90">Order #{order.order_id}</p>
+              <h1 className="text-2xl font-bold">Create Bill</h1>
+              <p className="text-sm opacity-90">{settings?.restaurant_name}</p>
             </div>
           </div>
           <ThemeControls variant="compact" />
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 pt-6 space-y-6">
-        <Card className="rounded-xl shadow-lg">
-          <CardHeader className="text-center border-b">
-            <div className="space-y-2">
-              <CardTitle className="text-2xl">{settings.restaurant_name}</CardTitle>
-              {settings.restaurant_address && (
-                <p className="text-sm text-muted-foreground">{settings.restaurant_address}</p>
-              )}
-              <p className="text-xs font-semibold text-primary">TAX INVOICE</p>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="pt-6 space-y-6">
-            {/* Order Info */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Order ID</p>
-                <p className="font-semibold">{order.order_id}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Table</p>
-                <p className="font-semibold">{order.table_id}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Date & Time</p>
-                <p className="font-semibold">{new Date(order.created_at || '').toLocaleString()}</p>
-              </div>
-              {order.customer_name && (
-                <div>
-                  <p className="text-muted-foreground">Customer</p>
-                  <p className="font-semibold">{order.customer_name}</p>
-                </div>
-              )}
-            </div>
+      <div className="max-w-7xl mx-auto px-4 pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Menu Section */}
+          <div className="lg:col-span-2">
+            <Card className="rounded-xl shadow-lg">
+              <CardHeader>
+                <CardTitle>Select Items</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {menuLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-32 w-full" />
+                    <Skeleton className="h-32 w-full" />
+                  </div>
+                ) : categoryNames.length > 0 ? (
+                  <Tabs defaultValue={categoryNames[0]} className="w-full">
+                    <TabsList className="w-full justify-start overflow-x-auto flex-nowrap mb-4">
+                      {categoryNames.map((category) => (
+                        <TabsTrigger key={category} value={category} className="whitespace-nowrap">
+                          {category}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
 
-            {/* Items */}
-            <div className="border-t border-b py-4 space-y-3">
-              <div className="flex justify-between font-semibold text-sm pb-2 border-b">
-                <span className="flex-1">ITEM</span>
-                <span className="w-16 text-center">QTY</span>
-                <span className="w-20 text-right">PRICE</span>
-              </div>
-              {items.map((item: any, index: number) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span className="flex-1">{item.Item}</span>
-                  <span className="w-16 text-center">{item.quantity}</span>
-                  <span className="w-20 text-right">₹{(item.Price * item.quantity).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
+                    {categoryNames.map((category) => (
+                      <TabsContent key={category} value={category} className="space-y-3">
+                        {categories[category].map((item) => (
+                          <MenuItemCard
+                            key={item["Item Id"]}
+                            item={item}
+                            onAddToCart={handleAddToCart}
+                          />
+                        ))}
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No menu items available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-            {/* Totals */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>₹{(order.subtotal || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Service Charge ({order.service_charge || 0}%)</span>
-                <span>₹{(order.service_charge_amount || 0).toFixed(2)}</span>
-              </div>
-              <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                <span>TOTAL</span>
-                <span className="text-primary">₹{order.total.toFixed(2)}</span>
-              </div>
-            </div>
+          {/* Bill Section */}
+          <div className="lg:col-span-1">
+            <Card className="rounded-xl shadow-lg sticky top-24">
+              <CardHeader>
+                <CardTitle>Current Bill</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {cart.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Add items to create a bill</p>
+                ) : (
+                  <>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {cart.map(item => (
+                        <Card key={item["Item Id"]} className="p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{item.Item}</p>
+                              <p className="text-xs text-muted-foreground">₹{item.Price} each</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                size="icon" 
+                                variant="outline" 
+                                onClick={() => updateQuantity(item["Item Id"], -1)}
+                                className="h-7 w-7"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </Button>
+                              <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
+                              <Button 
+                                size="icon" 
+                                variant="outline" 
+                                onClick={() => updateQuantity(item["Item Id"], 1)}
+                                className="h-7 w-7"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                onClick={() => removeItem(item["Item Id"])}
+                                className="h-7 w-7 text-destructive"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="text-right mt-1">
+                            <p className="font-bold text-sm">₹{(item.Price * item.quantity).toFixed(2)}</p>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
 
-            {/* QR Code */}
-            {qrUrl && (
-              <div className="border rounded-lg p-6 text-center bg-secondary/20">
-                <p className="font-semibold mb-3">Scan to Pay</p>
-                <div className="bg-white p-4 rounded-lg inline-block">
-                  <img src={qrUrl} alt="UPI Payment QR Code" className="w-48 h-48" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-3">Scan with any UPI app</p>
-              </div>
-            )}
+                    <div className="border-t pt-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal</span>
+                        <span>₹{subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Service Charge ({serviceChargeRate}%)</span>
+                        <span>₹{serviceChargeAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                        <span>Total</span>
+                        <span className="text-primary">₹{grandTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
 
-            {/* Payment Mode */}
-            {order.payment_mode && (
-              <div className="text-center text-sm">
-                <span className="inline-block px-4 py-2 bg-secondary rounded-full">
-                  Payment Mode: <strong>{order.payment_mode.toUpperCase()}</strong>
-                </span>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4 print:hidden">
-              <Button onClick={handleDownloadBill} className="flex-1">
-                <Download className="mr-2 h-4 w-4" />
-                Download Bill
-              </Button>
-              <Button onClick={handlePrintBill} variant="outline" className="flex-1">
-                <Share2 className="mr-2 h-4 w-4" />
-                Print Bill
-              </Button>
-            </div>
-
-            {/* Footer */}
-            <div className="text-center pt-6 border-t">
-              <p className="font-semibold mb-2">Thank you for dining with us!</p>
-              <p className="text-sm text-muted-foreground">Visit us again soon</p>
-            </div>
-          </CardContent>
-        </Card>
+                    <div className="space-y-2 pt-2">
+                      <Button onClick={handleDownloadBill} className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Bill
+                      </Button>
+                      <Button onClick={handlePrintBill} variant="outline" className="w-full">
+                        <Printer className="mr-2 h-4 w-4" />
+                        Print Bill
+                      </Button>
+                      <Button onClick={handleClearCart} variant="ghost" className="w-full">
+                        Clear Bill
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

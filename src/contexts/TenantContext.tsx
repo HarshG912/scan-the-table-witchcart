@@ -23,6 +23,7 @@ interface TenantSettings {
   payment_modes: any;
   menu_sheet_url: string | null;
   theme_config: any;
+  require_customer_auth?: boolean;
 }
 
 interface GlobalSettings {

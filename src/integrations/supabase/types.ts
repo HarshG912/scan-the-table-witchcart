@@ -255,6 +255,7 @@ export type Database = {
           menu_sheet_url: string | null
           merchant_upi_id: string
           payment_modes: Json
+          require_customer_auth: boolean
           restaurant_address: string | null
           restaurant_name: string
           service_charge: number
@@ -269,6 +270,7 @@ export type Database = {
           menu_sheet_url?: string | null
           merchant_upi_id?: string
           payment_modes?: Json
+          require_customer_auth?: boolean
           restaurant_address?: string | null
           restaurant_name: string
           service_charge?: number
@@ -283,6 +285,7 @@ export type Database = {
           menu_sheet_url?: string | null
           merchant_upi_id?: string
           payment_modes?: Json
+          require_customer_auth?: boolean
           restaurant_address?: string | null
           restaurant_name?: string
           service_charge?: number
@@ -383,6 +386,7 @@ export type Database = {
         Row: {
           menu_sheet_url: string | null
           payment_modes: Json | null
+          require_customer_auth: boolean | null
           restaurant_address: string | null
           restaurant_name: string | null
           service_charge: number | null
@@ -392,6 +396,7 @@ export type Database = {
         Insert: {
           menu_sheet_url?: string | null
           payment_modes?: Json | null
+          require_customer_auth?: boolean | null
           restaurant_address?: string | null
           restaurant_name?: string | null
           service_charge?: number | null
@@ -401,6 +406,7 @@ export type Database = {
         Update: {
           menu_sheet_url?: string | null
           payment_modes?: Json | null
+          require_customer_auth?: boolean | null
           restaurant_address?: string | null
           restaurant_name?: string | null
           service_charge?: number | null
