@@ -38,11 +38,22 @@ export default function TenantCart() {
       setCart(JSON.parse(savedCart));
     }
 
+    // Check if user just logged in (returning from OAuth)
+    const wasRedirectedFromAuth = sessionStorage.getItem('pending_order_placement');
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        fetchUserProfile(session.user.id).then(() => {
+          // If user just logged in and has pending order, automatically place it
+          if (wasRedirectedFromAuth === 'true') {
+            sessionStorage.removeItem('pending_order_placement');
+            setTimeout(() => {
+              handleConfirmOrder();
+            }, 500);
+          }
+        });
       }
     });
 
@@ -99,6 +110,7 @@ export default function TenantCart() {
     
     if (requireAuth && (!user || !session)) {
       console.log("Order blocked: User not authenticated");
+      sessionStorage.setItem('pending_order_placement', 'true');
       setShowAuthDialog(true);
       return;
     }
@@ -107,6 +119,7 @@ export default function TenantCart() {
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
       if (error || !currentSession) {
         console.log("Order blocked: Session validation failed", error);
+        sessionStorage.setItem('pending_order_placement', 'true');
         setShowAuthDialog(true);
         return;
       }
@@ -119,7 +132,7 @@ export default function TenantCart() {
     console.log("Starting order creation:", {
       tenantId,
       tableNumber,
-      userId: user.id,
+      userId: user?.id || 'guest',
       paymentMode,
       cartItems: cart.length,
       cartTotal: cart.reduce((sum, item) => sum + item.Price * item.quantity, 0)
@@ -365,19 +378,6 @@ export default function TenantCart() {
         redirectPath={`/${tenantId}/cart?table=${tableNumber}`}
         onAuthSuccess={() => {
           setShowAuthDialog(false);
-          // Immediately fetch session and proceed with order
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-              setSession(session);
-              setUser(session.user);
-              fetchUserProfile(session.user.id).then(() => {
-                // Delay slightly to ensure state is updated
-                setTimeout(() => {
-                  handleConfirmOrder();
-                }, 500);
-              });
-            }
-          });
         }}
       />
       
