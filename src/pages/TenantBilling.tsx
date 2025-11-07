@@ -12,6 +12,7 @@ import { fetchMenuItems, groupByCategory } from "@/lib/menuService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cartToBillData, downloadBill as downloadBillUnified, printBill } from "@/lib/unifiedBilling";
 
 export default function TenantBilling() {
   const { tenantId } = useParams<{ tenantId: string }>();
@@ -109,17 +110,15 @@ export default function TenantBilling() {
       return;
     }
 
-    const billHTML = generateBillHTML();
-    const blob = new Blob([billHTML], { type: 'text/html' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bill-${Date.now()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    const billData = cartToBillData(
+      cart,
+      settings.restaurant_name,
+      settings.restaurant_address,
+      settings.merchant_upi_id,
+      settings.service_charge
+    );
     
+    downloadBillUnified(billData);
     toast.success("Bill downloaded successfully!");
     setCart([]); // Clear cart after download
   };
@@ -130,185 +129,21 @@ export default function TenantBilling() {
       return;
     }
 
-    const printWindow = window.open('', '', 'height=600,width=800');
-    if (printWindow) {
-      printWindow.document.write(generateBillHTML());
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      setTimeout(() => {
-        printWindow.close();
-        setCart([]); // Clear cart after print
-      }, 100);
+    if (!settings) {
+      toast.error("Restaurant settings not loaded");
+      return;
     }
-  };
 
-  const generateBillHTML = () => {
-    if (!settings) return '';
-
-    // Generate UPI QR code URL
-    const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(settings.restaurant_name)}&am=${grandTotal.toFixed(2)}&cu=INR`;
-    const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Bill - ${settings.restaurant_name}</title>
-        <style>
-          body {
-            font-family: 'Courier New', monospace;
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-            font-size: 14px;
-          }
-          .header {
-            text-align: center;
-            border-bottom: 2px dashed #000;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: bold;
-          }
-          .header p {
-            margin: 5px 0;
-            font-size: 12px;
-          }
-          .info {
-            margin-bottom: 20px;
-          }
-          .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-          }
-          .items {
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
-            padding: 15px 0;
-            margin: 20px 0;
-          }
-          .item-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0;
-          }
-          .item-name {
-            flex: 1;
-          }
-          .item-qty {
-            width: 40px;
-            text-align: center;
-          }
-          .item-price {
-            width: 80px;
-            text-align: right;
-          }
-          .totals {
-            margin-top: 20px;
-          }
-          .total-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-          }
-          .total-row.grand {
-            font-weight: bold;
-            font-size: 16px;
-            border-top: 2px solid #000;
-            padding-top: 10px;
-            margin-top: 15px;
-          }
-          .qr-section {
-            text-align: center;
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px dashed #000;
-          }
-          .qr-section img {
-            width: 200px;
-            height: 200px;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 25px;
-            border-top: 2px dashed #000;
-            padding-top: 15px;
-            font-size: 12px;
-          }
-          @media print {
-            body {
-              padding: 10px;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${settings.restaurant_name}</h1>
-          ${settings.restaurant_address ? `<p>${settings.restaurant_address}</p>` : ''}
-          <p style="margin-top: 10px; font-weight: bold;">TAX INVOICE</p>
-        </div>
-        
-        <div class="info">
-          <div class="info-row">
-            <span><strong>Date & Time:</strong></span>
-            <span>${new Date().toLocaleString()}</span>
-          </div>
-          <div class="info-row">
-            <span><strong>Bill Type:</strong></span>
-            <span>Staff Generated</span>
-          </div>
-        </div>
-        
-        <div class="items">
-          <div class="item-row" style="font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 8px;">
-            <span class="item-name">ITEM</span>
-            <span class="item-qty">QTY</span>
-            <span class="item-price">PRICE</span>
-          </div>
-          ${cart.map(item => `
-            <div class="item-row">
-              <span class="item-name">${item.Item}</span>
-              <span class="item-qty">${item.quantity}</span>
-              <span class="item-price">₹${(item.Price * item.quantity).toFixed(2)}</span>
-            </div>
-          `).join('')}
-        </div>
-        
-        <div class="totals">
-          <div class="total-row">
-            <span>Subtotal:</span>
-            <span>₹${subtotal.toFixed(2)}</span>
-          </div>
-          <div class="total-row">
-            <span>Service Charge (${serviceChargeRate}%):</span>
-            <span>₹${serviceChargeAmount.toFixed(2)}</span>
-          </div>
-          <div class="total-row grand">
-            <span>TOTAL:</span>
-            <span>₹${grandTotal.toFixed(2)}</span>
-          </div>
-        </div>
-        
-        <div class="qr-section">
-          <p style="margin: 0 0 10px 0; font-weight: bold;">Scan to Pay</p>
-          <img src="${qrUrl}" alt="UPI Payment QR Code" />
-          <p style="margin: 10px 0 0 0; font-size: 11px;">Scan with any UPI app</p>
-        </div>
-        
-        <div class="footer">
-          <p style="font-weight: bold; margin-bottom: 10px;">Thank you for dining with us!</p>
-          <p>Visit us again soon</p>
-        </div>
-      </body>
-      </html>
-    `;
+    const billData = cartToBillData(
+      cart,
+      settings.restaurant_name,
+      settings.restaurant_address,
+      settings.merchant_upi_id,
+      settings.service_charge
+    );
+    
+    printBill(billData);
+    setCart([]); // Clear cart after print
   };
 
   return (

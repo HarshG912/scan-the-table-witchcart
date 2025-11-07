@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, CheckCircle2, Clock, ChefHat, Package, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
-import { orderToBillData, downloadBill } from "@/lib/billGenerator";
+import { orderToBillData, downloadBill } from "@/lib/unifiedBilling";
 
 interface Order {
   id: string;
@@ -186,23 +186,28 @@ export function TrackOrder({ tableId, tenantId, refreshTrigger }: TrackOrderProp
     if (!order) return;
     
     try {
-      // Fetch restaurant settings for this tenant
-      const { data: settings } = await supabase
-        .from('public_tenant_settings')
-        .select('restaurant_name, restaurant_address')
+      // Fetch tenant-specific restaurant settings
+      const { data: settings, error } = await supabase
+        .from('tenant_settings')
+        .select('restaurant_name, restaurant_address, merchant_upi_id, service_charge')
         .eq('tenant_id', tenantId)
         .single();
       
-      const restaurantName = settings?.restaurant_name || 'Restaurant';
-      const restaurantAddress = settings?.restaurant_address || '';
+      if (error) throw error;
       
-      // Note: QR generation is handled by billing page
-      const billData = orderToBillData(order as any, restaurantName, restaurantAddress);
-      await downloadBill(billData, '');
+      const billData = orderToBillData(
+        order as any,
+        settings.restaurant_name || 'Restaurant',
+        settings.restaurant_address || '',
+        settings.merchant_upi_id || '',
+        settings.service_charge || 0
+      );
+      
+      downloadBill(billData);
       
       toast.success("Bill downloaded successfully!");
     } catch (error) {
-      console.error("Error downloading bill:", error);
+      console.error('Error downloading bill:', error);
       toast.error("Failed to download bill");
     }
   };

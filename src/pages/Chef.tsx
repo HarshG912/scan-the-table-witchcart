@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RefreshCw, LogOut, Download, ChefHat } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { useBillGenerator } from "@/hooks/use-bill-generator";
-import { orderToBillData, downloadBill } from "@/lib/billGenerator";
+import { orderToBillData, downloadBill } from "@/lib/unifiedBilling";
 import { DashboardHeader } from "@/components/DashboardHeader";
 
 export default function Cook() {
@@ -264,22 +264,38 @@ export default function Cook() {
   };
 
   const handleDownloadBill = async (order: Order) => {
-    // Fetch restaurant settings
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('restaurant_name, restaurant_address')
-      .limit(1)
-      .single();
-    
-    const restaurantName = settings?.restaurant_name || 'Scan The Table';
-    const restaurantAddress = settings?.restaurant_address || '';
-    const billData = orderToBillData(order, restaurantName, restaurantAddress);
-    await downloadBill(billData);
-    
-    toast({
-      title: "Bill Downloaded",
-      description: `Bill for order ${order.order_id} has been downloaded.`,
-    });
+    try {
+      // Fetch tenant-specific restaurant settings
+      const { data: settings, error } = await supabase
+        .from('tenant_settings')
+        .select('restaurant_name, restaurant_address, merchant_upi_id, service_charge')
+        .eq('tenant_id', tenantId)
+        .single();
+      
+      if (error) throw error;
+      
+      const billData = orderToBillData(
+        order,
+        settings.restaurant_name || 'Restaurant',
+        settings.restaurant_address || '',
+        settings.merchant_upi_id || '',
+        settings.service_charge || 0
+      );
+      
+      downloadBill(billData);
+      
+      toast({
+        title: "Bill Downloaded",
+        description: `Bill for order ${order.order_id} has been downloaded.`,
+      });
+    } catch (error) {
+      console.error('Error downloading bill:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to download bill. Please try again.",
+      });
+    }
   };
 
   const handleLogout = async () => {

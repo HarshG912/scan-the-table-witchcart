@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { orderToBillData, downloadBill } from "@/lib/billGenerator";
+import { orderToBillData, downloadBill } from "@/lib/unifiedBilling";
 import { Order } from "@/types/menu";
 
 export function useBillGenerator() {
@@ -25,27 +25,30 @@ export function useBillGenerator() {
               console.log('Auto-generating bill for order:', order.order_id);
               
               // Fetch tenant-specific restaurant settings
-              const { data: settings } = await supabase
+              const { data: settings, error: settingsError } = await supabase
                 .from('tenant_settings')
-                .select('restaurant_name, restaurant_address, merchant_upi_id')
+                .select('restaurant_name, restaurant_address, merchant_upi_id, service_charge')
                 .eq('tenant_id', order.tenant_id)
                 .single();
 
-              const restaurantName = settings?.restaurant_name || 'Scan The Table';
-              const restaurantAddress = settings?.restaurant_address || '';
-              
-              // Generate QR code URL if merchant UPI ID exists
-              let qrUrl = '';
-              if (settings?.merchant_upi_id) {
-                const upiString = `upi://pay?pa=${settings.merchant_upi_id}&pn=${encodeURIComponent(restaurantName)}&am=${order.total}&tn=Order+${order.order_id}&cu=INR`;
-                qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(upiString)}&size=300`;
+              if (settingsError) {
+                console.error('Error fetching settings:', settingsError);
+                return;
               }
+
+              // Convert order to bill data using unified system
+              const billData = orderToBillData(
+                order,
+                settings.restaurant_name || 'Restaurant',
+                settings.restaurant_address || '',
+                settings.merchant_upi_id || '',
+                settings.service_charge || 0
+              );
               
-              // Convert order to bill data and download
-              const billData = orderToBillData(order, restaurantName, restaurantAddress);
-              await downloadBill(billData, qrUrl);
+              // Download bill with consistent formatting and QR code
+              downloadBill(billData);
               
-              // Store bill URL placeholder (in real implementation, you'd upload to storage)
+              // Store bill URL placeholder
               await supabase
                 .from('orders')
                 .update({ bill_url: `bill_${order.order_id}.html` })
