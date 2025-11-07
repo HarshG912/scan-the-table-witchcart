@@ -11,15 +11,18 @@ interface AuthDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAuthSuccess: () => void;
+  redirectPath?: string;
 }
 
-export function AuthDialog({ open, onOpenChange, onAuthSuccess }: AuthDialogProps) {
+export function AuthDialog({ open, onOpenChange, onAuthSuccess, redirectPath }: AuthDialogProps) {
   const [loading, setLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      const redirectUrl = `${window.location.origin}/cart${window.location.search}`;
+      const redirectUrl = redirectPath 
+        ? `${window.location.origin}${redirectPath}`
+        : `${window.location.origin}${window.location.pathname}${window.location.search}`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

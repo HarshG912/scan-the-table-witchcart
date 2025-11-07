@@ -362,6 +362,7 @@ export default function TenantCart() {
       <AuthDialog 
         open={showAuthDialog} 
         onOpenChange={setShowAuthDialog}
+        redirectPath={`/${tenantId}/cart?table=${tableNumber}`}
         onAuthSuccess={() => {
           setShowAuthDialog(false);
           // Immediately fetch session and proceed with order
