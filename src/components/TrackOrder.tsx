@@ -186,9 +186,9 @@ export function TrackOrder({ tableId, tenantId, refreshTrigger }: TrackOrderProp
     if (!order) return;
     
     try {
-      // Fetch tenant-specific restaurant settings
+      // Fetch tenant-specific restaurant settings from public view (accessible without auth)
       const { data: settings, error } = await supabase
-        .from('tenant_settings')
+        .from('public_tenant_settings')
         .select('restaurant_name, restaurant_address, merchant_upi_id, service_charge')
         .eq('tenant_id', tenantId)
         .single();

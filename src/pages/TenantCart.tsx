@@ -375,7 +375,7 @@ export default function TenantCart() {
       <AuthDialog 
         open={showAuthDialog} 
         onOpenChange={setShowAuthDialog}
-        redirectPath={`/${tenantId}/cart?table=${tableNumber}`}
+        redirectPath={`/${tenantId}/cart/${tableNumber}`}
         onAuthSuccess={() => {
           setShowAuthDialog(false);
         }}

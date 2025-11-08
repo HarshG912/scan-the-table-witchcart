@@ -385,6 +385,7 @@ export type Database = {
       public_tenant_settings: {
         Row: {
           menu_sheet_url: string | null
+          merchant_upi_id: string | null
           payment_modes: Json | null
           require_customer_auth: boolean | null
           restaurant_address: string | null
@@ -395,6 +396,7 @@ export type Database = {
         }
         Insert: {
           menu_sheet_url?: string | null
+          merchant_upi_id?: string | null
           payment_modes?: Json | null
           require_customer_auth?: boolean | null
           restaurant_address?: string | null
@@ -405,6 +407,7 @@ export type Database = {
         }
         Update: {
           menu_sheet_url?: string | null
+          merchant_upi_id?: string | null
           payment_modes?: Json | null
           require_customer_auth?: boolean | null
           restaurant_address?: string | null
