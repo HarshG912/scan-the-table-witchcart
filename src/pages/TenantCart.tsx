@@ -213,7 +213,7 @@ export default function TenantCart() {
         service_charge_amount: serviceChargeAmount,
         total: grandTotal,
         status: "pending",
-        payment_status: paymentMode === "upi" ? "unpaid" : "paid",
+        payment_status: "unpaid",
         payment_mode: paymentMode,
         qr_url: qrUrl || null,
         notes: "",

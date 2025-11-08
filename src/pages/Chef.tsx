@@ -482,7 +482,7 @@ export default function Cook() {
                             Accept & Mark as Paid
                           </Button>
                         )}
-                        {order.status !== "completed" && order.status !== "rejected" && order.status !== "pending" && order.payment_status === "paid" && (
+                        {order.status !== "completed" && order.status !== "rejected" && order.status !== "pending" && (
                           <Button
                             onClick={() => updateOrderStatus.mutate({ 
                               orderId: order.id!, 
