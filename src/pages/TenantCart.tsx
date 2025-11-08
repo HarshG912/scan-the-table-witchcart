@@ -28,6 +28,7 @@ export default function TenantCart() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<{ full_name: string; email: string; phone?: string } | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   const serviceChargeRate = settings?.service_charge || 0;
   const availablePaymentModes = (settings?.payment_modes as any) || { upi: true, cash: true, card: true };
@@ -37,13 +38,15 @@ export default function TenantCart() {
     if (savedCart) {
       setCart(JSON.parse(savedCart));
     }
-
+    
     // Check if user just logged in (returning from OAuth)
     const wasRedirectedFromAuth = sessionStorage.getItem('pending_order_placement');
     
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setIsAuthLoading(false);
+      
       if (session?.user) {
         fetchUserProfile(session.user.id).then(() => {
           // If user just logged in and has pending order, automatically place it
@@ -105,6 +108,12 @@ export default function TenantCart() {
   };
 
   const handleConfirmOrder = async () => {
+    // Wait for auth to load before checking
+    if (isAuthLoading) {
+      console.log("Order blocked: Auth still loading");
+      return;
+    }
+
     // Pre-flight validation: Check authentication only if required
     const requireAuth = settings?.require_customer_auth ?? true;
     
@@ -113,16 +122,6 @@ export default function TenantCart() {
       sessionStorage.setItem('pending_order_placement', 'true');
       setShowAuthDialog(true);
       return;
-    }
-
-    if (requireAuth) {
-      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-      if (error || !currentSession) {
-        console.log("Order blocked: Session validation failed", error);
-        sessionStorage.setItem('pending_order_placement', 'true');
-        setShowAuthDialog(true);
-        return;
-      }
     }
 
     if (isPlacingOrder) return;
