@@ -16,9 +16,15 @@ export function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
           {/* Image */}
           <div className="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-muted">
             {item["Image URL"] ? (
-              <img src={item["Image URL"]} alt={item["Item"]} className="w-full h-full object-cover" />
+              <img
+                src={item["Image URL"]}
+                alt={item["Item"]}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">No image</div>
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                No image
+              </div>
             )}
           </div>
 
@@ -40,11 +46,14 @@ export function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
                 )}
               </div>
               <p className="text-lg font-bold text-primary mt-1">₹{item.Price}</p>
-              <p className="text-xs text-muted-foreground">{item.Qty}</p>
             </div>
 
             {/* Add button */}
-            <Button size="sm" onClick={() => onAddToCart(item)} className="self-end">
+            <Button
+              size="sm"
+              onClick={() => onAddToCart(item)}
+              className="self-end"
+            >
               <Plus className="w-4 h-4 mr-1" />
               Add
             </Button>
