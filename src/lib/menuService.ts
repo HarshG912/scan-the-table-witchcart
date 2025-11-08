@@ -55,8 +55,8 @@ export async function fetchMenuItems(tenantId: string): Promise<MenuItem[]> {
         Veg: row["Veg"]?.toLowerCase() === "true" || row["Veg"] === "TRUE",
         "Image URL": row["Image URL"],
         Available: row["Available"]?.toLowerCase() === "true" || row["Available"] === "TRUE",
-        qty: row["qty"] || undefined,
-        description: row["description"] || undefined,
+        qty: row["qty"],
+        description: row["description"],
       };
 
       if (menuItem.Available) {
