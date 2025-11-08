@@ -27,7 +27,7 @@ export function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
             <div>
               <div className="flex items-start gap-2">
                 <h3 className="font-semibold text-sm leading-tight flex-1">{item["Item"]}</h3>
-                {item.Veg === "TRUE" || item.Veg === true ? (
+                {item.Veg === true || item.Veg === "TRUE" ? (
                   <div className="flex items-center gap-1 text-accent text-xs font-medium shadow-sm">
                     <Leaf className="w-4 h-4 fill-current" />
                     <span>Veg</span>
