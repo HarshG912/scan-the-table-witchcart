@@ -7,10 +7,10 @@ interface MenuItem {
   Item: string;
   Qty: string;
   Category: string;
-  Price: string;
-  Veg: string; // "TRUE" or "FALSE"
+  Price: string | number;
+  Veg: string | boolean;
   "Image URL": string;
-  Available: string; // "TRUE" or "FALSE"
+  Available: string | boolean;
 }
 
 interface MenuItemCardProps {
@@ -19,8 +19,10 @@ interface MenuItemCardProps {
 }
 
 export function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
-  const isVeg = item.Veg?.toUpperCase() === "TRUE";
-  const isAvailable = item.Available?.toUpperCase() === "TRUE";
+  const isVeg = typeof item.Veg === "boolean" ? item.Veg : String(item.Veg).toUpperCase() === "TRUE";
+
+  const isAvailable =
+    typeof item.Available === "boolean" ? item.Available : String(item.Available).toUpperCase() === "TRUE";
 
   return (
     <Card
@@ -56,6 +58,7 @@ export function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
                   </div>
                 )}
               </div>
+
               <p className="text-lg font-bold text-primary mt-1">₹{item.Price}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{item.Qty}</p>
             </div>
