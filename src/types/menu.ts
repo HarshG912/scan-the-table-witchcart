@@ -6,6 +6,8 @@ export interface MenuItem {
   "Veg": boolean;
   "Image URL": string;
   "Available": boolean;
+  "qty"?: string;
+  "description"?: string;
 }
 
 export interface CartItem extends MenuItem {

@@ -45,6 +45,12 @@ export function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
                   </div>
                 )}
               </div>
+              {item.qty && (
+                <p className="text-xs text-muted-foreground mt-0.5">{item.qty}</p>
+              )}
+              {item.description && (
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
+              )}
               <p className="text-lg font-bold text-primary mt-1">₹{item.Price}</p>
             </div>
 
