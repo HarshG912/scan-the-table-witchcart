@@ -64,6 +64,7 @@ export default function Auth() {
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
+    console.log("handleLogin function called");
     e.preventDefault();
     setLoading(true);
 
