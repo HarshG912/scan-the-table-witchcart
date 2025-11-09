@@ -113,7 +113,7 @@ BEGIN
 
   base_url := current_setting('app.base_url', true);
   IF base_url IS NULL THEN
-    base_url := 'https://yourapp.lovable.app';
+    base_url := 'https://your-app.vercel.app';
   END IF;
 
   -- Delete existing tables for this tenant
