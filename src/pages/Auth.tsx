@@ -202,10 +202,8 @@ export default function Auth() {
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Logging in...
-                <>
-              ) : (
-                "Login"
-              )}
+                </>
+              ) : ("Login")}
             </Button>
           </form>
         </CardContent>
