@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -17,7 +22,12 @@ export default function Auth() {
 
   useEffect(() => {
     // Check if user is already logged in and redirect based on role
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    async function checkSession() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Error getting session:", error);
+        return;
+      }
       if (session) {
         const { data: rolesData, error: roleError } = await supabase
           .from("user_roles")
@@ -60,11 +70,11 @@ export default function Auth() {
           navigate(`/${waiter.tenant_id}/waiter`);
         }
       }
-    });
+    }
+    checkSession();
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
-    console.log("handleLogin function called");
     e.preventDefault();
     setLoading(true);
 
@@ -145,7 +155,7 @@ export default function Auth() {
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Login failed",
+          title: "Login failed",
         description: error.message || "Invalid credentials",
       });
     } finally {
@@ -192,7 +202,7 @@ export default function Auth() {
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Logging in...
-                </>
+                <>
               ) : (
                 "Login"
               )}
