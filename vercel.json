@@ -1,15 +1,15 @@
 {
   "routes": [
-    { "src": "/auth", "dest": "/auth" },
-    { "src": "/admin", "dest": "/admin" },
-    { "src": "/admin/register-tenant", "dest": "/admin/register-tenant" },
-    { "src": "/admin/tenant/(?<tenantId>[^/]+)", "dest": "/admin/tenant/:tenantId" },
-    { "src": "/:tenantId/table/(?<tableNumber>[^/]+)", "dest": "/:tenantId/table/:tableNumber" },
-    { "src": "/:tenantId/cart/(?<tableNumber>[^/]+)", "dest": "/:tenantId/cart/:tableNumber" },
-    { "src": "/:tenantId/billing", "dest": "/:tenantId/billing" },
-    { "src": "/:tenantId/admin", "dest": "/:tenantId/admin" },
-    { "src": "/:tenantId/chef", "dest": "/:tenantId/chef" },
-    { "src": "/:tenantId/analytics", "dest": "/:tenantId/analytics" },
-    { "src": "/(.*)", "dest": "/" }
+    { "src": "/auth", "dest": "/index.html" },
+    { "src": "/admin", "dest": "/index.html" },
+    { "src": "/admin/register-tenant", "dest": "/index.html" },
+    { "src": "/admin/tenant/(?<tenantId>[^/]+)", "dest": "/index.html" },
+    { "src": "/:tenantId/table/(?<tableNumber>[^/]+)", "dest": "/index.html" },
+    { "src": "/:tenantId/cart/(?<tableNumber>[^/]+)", "dest": "/index.html" },
+    { "src": "/:tenantId/billing", "dest": "/index.html" },
+    { "src": "/:tenantId/admin", "dest": "/index.html" },
+    { "src": "/:tenantId/chef", "dest": "/index.html" },
+    { "src": "/:tenantId/analytics", "dest": "/index.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
