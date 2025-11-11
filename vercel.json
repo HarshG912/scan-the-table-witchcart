@@ -1,8 +1,15 @@
 {
   "routes": [
-    {
-      "src": "/auth",
-      "dest": "/auth"
-    }
+    { "src": "/auth", "dest": "/auth" },
+    { "src": "/admin", "dest": "/admin" },
+    { "src": "/admin/register-tenant", "dest": "/admin/register-tenant" },
+    { "src": "/admin/tenant/(?<tenantId>[^/]+)", "dest": "/admin/tenant/:tenantId" },
+    { "src": "/:tenantId/table/(?<tableNumber>[^/]+)", "dest": "/:tenantId/table/:tableNumber" },
+    { "src": "/:tenantId/cart/(?<tableNumber>[^/]+)", "dest": "/:tenantId/cart/:tableNumber" },
+    { "src": "/:tenantId/billing", "dest": "/:tenantId/billing" },
+    { "src": "/:tenantId/admin", "dest": "/:tenantId/admin" },
+    { "src": "/:tenantId/chef", "dest": "/:tenantId/chef" },
+    { "src": "/:tenantId/analytics", "dest": "/:tenantId/analytics" },
+    { "src": "/(.*)", "dest": "/" }
   ]
 }
